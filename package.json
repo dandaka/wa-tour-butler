@@ -1,0 +1,31 @@
+{
+  "name": "wa-tour-butler",
+  "version": "1.0.0",
+  "description": "WhatsApp chat agent for organizing padel tournaments",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "watch": "tsc --watch"
+  },
+  "keywords": [
+    "whatsapp",
+    "baileys",
+    "padel",
+    "tournament",
+    "organizer"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "baileys": "^6.7.16",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
