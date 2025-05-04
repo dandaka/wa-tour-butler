@@ -11,6 +11,7 @@
     "fetch-groups": "ts-node src/scripts/fetchGroupChats.ts",
     "whatsapp-login": "ts-node src/scripts/whatsappLogin.ts",
     "sync-messages": "ts-node src/scripts/syncGroupMessages.ts",
+    "sync-minimal": "ts-node src/scripts/sync-minimal.ts",
     "view-messages": "ts-node src/scripts/viewGroupMessages.ts"
   },
   "keywords": [
