@@ -7,6 +7,28 @@ import makeWASocket, {
 import path from 'path';
 import fs from 'fs';
 import Database from 'better-sqlite3';
+
+// Simple in-memory cache implementation
+class SimpleCache {
+  private cache: Record<string, any> = {};
+  
+  get(key: string) {
+    return this.cache[key];
+  }
+  
+  set(key: string, value: any) {
+    this.cache[key] = value;
+    return value;
+  }
+  
+  del(key: string) {
+    delete this.cache[key];
+  }
+  
+  flushAll() {
+    this.cache = {};
+  }
+}
 // Define helper functions directly in this file instead of importing
 
 // Store path for session data
@@ -31,10 +53,18 @@ async function minimalSync() {
   // Initialize auth state
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
   
-  // Create WhatsApp socket connection
+  // Create WhatsApp socket connection with a randomized browser identifier
+  // This helps make each sync attempt appear as a new session to WhatsApp
+  const browserRandomizer = Math.floor(Math.random() * 1000);
+  // Create a simple cache for message retry counter
+  const msgRetryCache = new SimpleCache();
+  
   const sock = makeWASocket({
     auth: state,
     printQRInTerminal: true,
+    browser: ['Chrome', `Desktop-${browserRandomizer}`, '22.04.4'],
+    msgRetryCounterCache: msgRetryCache, // Proper cache implementation
+    generateHighQualityLinkPreview: true,
   });
   
   // Track key variables
@@ -43,11 +73,26 @@ async function minimalSync() {
   let connected = false;
   let exitTimeout: NodeJS.Timeout;
   
-  // Set timeout for the entire script to exit after 15 seconds
+  // Set timeout for the entire script to exit after 60 seconds (to allow for full sync)
   exitTimeout = setTimeout(() => {
-    console.log('\\nExiting after timeout...');
+    console.log('\nExiting after timeout...');
+    // Clean up session files to make next sync attempt appear as a new session
+    try {
+      console.log('Regenerating session token for next sync...');
+      // We're only modifying one file to maintain login but make it appear as a new session
+      const creds = path.join(SESSION_DIR, 'creds.json');
+      if (fs.existsSync(creds)) {
+        const credsData = JSON.parse(fs.readFileSync(creds, 'utf8'));
+        // Modify a non-critical value to make the session appear different
+        credsData.me = { ...credsData.me, platform: Math.random().toString(36).substring(2, 7) };
+        fs.writeFileSync(creds, JSON.stringify(credsData, null, 2));
+        console.log('Session token updated for next sync');
+      }
+    } catch (err) {
+      console.error('Error updating session token:', err);
+    }
     process.exit(0);
-  }, 15000);
+  }, 60000);
   
   // Save credentials on update
   sock.ev.on('creds.update', saveCreds);
@@ -192,7 +237,14 @@ async function minimalSync() {
       }
       
       if (newMessages > 0) {
-        console.log(`Added ${newMessages} message(s) from history sync`);
+        console.log(`SUCCESS! Added ${newMessages} message(s) from history sync`);
+        
+        // Reset the timeout to exit soon after success
+        clearTimeout(exitTimeout);
+        exitTimeout = setTimeout(() => {
+          console.log('\nSuccessfully synced messages. Exiting...');
+          process.exit(0);
+        }, 5000);
       }
     }
   });
@@ -285,41 +337,107 @@ async function minimalSync() {
           remoteJid: targetGroupJid,
           id: lastMessage.id,
           fromMe: lastMessage.fromMe === 1,
-          participant: lastMessage.participant
+          participant: lastMessage.participant || undefined // Convert null to undefined
         };
         
-        console.log(`\n====== IMPORTANT: CHECK YOUR PHONE NOW ======`);
-        console.log(`1. Make sure your phone is unlocked`);
-        console.log(`2. IMPORTANT: Minimize WhatsApp, then open it again`);
-        console.log(`3. Scroll through recent messages in the chat`);
+        console.log(`\n====== IMPORTANT INSTRUCTIONS ======`);
+        console.log(`1. Make sure your phone has WhatsApp OPEN`);
+        console.log(`2. First CLOSE WhatsApp completely`);
+        console.log(`3. Then OPEN WhatsApp and wait 2-3 seconds`);
+        console.log(`4. Then MINIMIZE WhatsApp (don't close it)`);
+        console.log(`5. Finally, scroll through recent messages`);
+        console.log(`6. Repeat steps 3-5 if notification says 'syncing stopped'`);
         console.log(`==========================================\n`);
+        
+        // First, subscribe to presence updates for the group
+        console.log('Subscribing to group presence updates...');
+        try {
+          if (targetGroupJid) { // Ensure targetGroupJid is not null
+            // More aggressive presence updates to simulate a real user
+            await sock.presenceSubscribe(targetGroupJid);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Simulate typing to appear more human-like
+            console.log('Simulating user activity...');
+            await sock.sendPresenceUpdate('composing', targetGroupJid);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Send presence update to appear active in the group
+            await sock.sendPresenceUpdate('available', targetGroupJid);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Try different approaches to encourage sync
+            console.log('Requesting update of chat state...');
+            try {
+              // Try to mark chat as read which might trigger sync
+              const lastMessages = db.prepare(`SELECT * FROM messages WHERE remoteJid = ? ORDER BY timestamp DESC LIMIT 1`).get(targetGroupJid) as any;
+              if (lastMessages?.id) {
+                await sock.readMessages([{remoteJid: targetGroupJid, id: lastMessages.id, participant: lastMessages.participant || undefined}]);
+              }
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (modifyError) {
+              console.log('Chat update not supported, continuing...');
+            }
+          }
+        } catch (presenceError) {
+          console.error('Error with presence update:', presenceError);
+        }
         
         // Using the technique from example.ts - mark message as read to trigger notification
         console.log('Sending read receipt to trigger message sync...');
         await sock.readMessages([messageKey]);
         
-        // If available, try to fetch message history directly
-        try {
-          if (typeof sock.fetchMessageHistory === 'function') {
-            console.log('Requesting message history...');
-            const historyRequestId = await sock.fetchMessageHistory(
-              50,
-              messageKey,
-              lastMessage.timestamp
-            );
-            console.log(`History request initiated with ID: ${historyRequestId}`);
-          } else {
-            console.log('fetchMessageHistory not available in this Baileys version');
+        // Try a second read receipt after a short delay (helps with sync)
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        console.log('Sending second read receipt...');
+        await sock.readMessages([messageKey]);
+        
+        // Try to fetch message history with retry logic
+        let historySuccess = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            if (typeof sock.fetchMessageHistory === 'function') {
+              console.log(`Requesting message history (attempt ${attempt}/3)...`);
+              const historyRequestId = await sock.fetchMessageHistory(
+                50,
+                messageKey,
+                lastMessage.timestamp || Math.floor(Date.now() / 1000) // Provide current timestamp as fallback
+              );
+              console.log(`History request initiated with ID: ${historyRequestId}`);
+              historySuccess = true;
+              break;
+            } else {
+              console.log('fetchMessageHistory not available in this Baileys version');
+              break;
+            }
+          } catch (historyError) {
+            console.error(`Error in history request attempt ${attempt}:`, historyError);
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
-        } catch (historyError) {
-          console.error('Error requesting history:', historyError);
         }
       } else {
         console.log('No reference message found in database');
       }
       
-      console.log('\nWaiting briefly for messages to sync...');
-      console.log('Script will exit automatically in a few seconds');
+      console.log('\nWaiting for messages to sync...');
+      console.log('If you see a "syncing has stopped" notification:');
+      console.log('1. Immediately OPEN WhatsApp on your iOS device'); 
+      console.log('2. Keep it open and watch for messages to appear');
+      console.log('\nKEY INSTRUCTIONS:');
+      console.log('* When you see "syncing with", KEEP THE SCRIPT RUNNING');
+      console.log('* After "syncing stopped", wait for messages to appear in WhatsApp');
+      console.log('* This script will keep running for 60 seconds to allow sync to complete');
+      console.log('\nScript progress will be shown every 10 seconds:');
+      
+      // Setup progress updates to help user understand what's happening
+      let progressCounter = 0;
+      const progressInterval = setInterval(() => {
+        progressCounter += 10;
+        console.log(`Still waiting for sync... (${progressCounter} seconds elapsed)`);
+      }, 10000);
+      
+      // Clear the interval when the script exits
+      setTimeout(() => clearInterval(progressInterval), 59000);
     } catch (error) {
       console.error('Error triggering message sync:', error);
     }
