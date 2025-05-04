@@ -2,7 +2,9 @@ import { Boom } from '@hapi/boom';
 import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
-  proto
+  proto,
+  MessageUpsertType,
+  MediaType
 } from 'baileys';
 import path from 'path';
 import fs from 'fs';
@@ -268,10 +270,35 @@ function checkSessionExists(): boolean {
 }
 
 /**
+ * Parse time period argument (1h, 1d, 1w) into milliseconds
+ */
+function parseTimePeriod(arg: string | undefined): number {
+  if (!arg) return 24 * 60 * 60 * 1000; // Default to 1 day
+  
+  const match = arg.match(/^(\d+)([hdw])$/);
+  if (!match) return 24 * 60 * 60 * 1000; // Default to 1 day if format is invalid
+  
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+  
+  switch (unit) {
+    case 'h': return value * 60 * 60 * 1000; // Hours
+    case 'd': return value * 24 * 60 * 60 * 1000; // Days
+    case 'w': return value * 7 * 24 * 60 * 60 * 1000; // Weeks
+    default: return 24 * 60 * 60 * 1000; // Default to 1 day
+  }
+}
+
+/**
  * Main function for syncing group messages with the database
  */
 async function syncGroupMessages() {
-  console.log(`Starting WhatsApp sync for group "${TARGET_GROUP_NAME}"...`);
+  // Get time period from command line arguments
+  const timePeriodArg = process.argv.find(arg => /^\d+[hdw]$/.test(arg));
+  const timePeriod = parseTimePeriod(timePeriodArg);
+  const timePeriodDesc = timePeriodArg || '1d';
+  
+  console.log(`Starting WhatsApp sync for group "${TARGET_GROUP_NAME}" (messages from last ${timePeriodDesc})...`);
   
   // Initialize the database
   const db = initializeDatabase();
@@ -421,24 +448,65 @@ async function syncGroupMessages() {
             info.participants.length
           );
           
-          // Wait for history to be received and messages to be processed
-          console.log('Waiting 10 seconds to collect messages...');
-          await new Promise(resolve => setTimeout(resolve, 10000));
+          // Calculate the timestamp from which to fetch messages
+          const fromTimestamp = Math.floor((Date.now() - timePeriod) / 1000);
+          console.log(`Fetching messages from ${new Date(fromTimestamp * 1000).toISOString()} onwards...`);
+          
+          try {
+            // Load messages through the standard history mechanism
+            console.log('Loading messages through standard history mechanism...');
+            console.log(`Looking for messages newer than ${new Date(fromTimestamp * 1000).toISOString()}`);
+            
+            // Setup a listener specifically for history sync events
+            sock.ev.on('messages.upsert', ({ messages, type }) => {
+              if (type === 'append' || type === 'notify') {
+                for (const msg of messages) {
+                  if (msg.key && msg.key.remoteJid === targetGroupJid) {
+                    const msgTimestamp = msg.messageTimestamp as number;
+                    if (msgTimestamp && msgTimestamp >= fromTimestamp) {
+                      try {
+                        storeMessage(db, msg);
+                        messagesAdded++;
+                        console.log(`Stored message from: ${new Date(msgTimestamp * 1000).toISOString()}`);
+                      } catch (error) {
+                        console.error('Failed to store message:', error);
+                      }
+                    }
+                  }
+                }
+              }
+            });
+            
+            // PASSIVE ONLY: We will NOT send any messages to the group
+            // Instead, just wait for any incoming messages that match our criteria
+            console.log('Passively waiting for messages - NO messages will be sent to the group');
+            console.log('Note: Historical message retrieval is limited to what WhatsApp sends during connection');
+            
+            // Wait to collect messages through history events
+            console.log('Waiting to collect messages through history events...');
+          } catch (error) {
+            console.error('Error fetching message history:', error);
+            console.log('Falling back to standard history sync...');
+            
+            // Wait for standard history events as fallback
+            console.log('Waiting 10 seconds to collect messages from standard history events...');
+            await new Promise(resolve => setTimeout(resolve, 10000));
+          }
           
           // If no messages were collected, we'll just use the current information
           if (messagesAdded === 0) {
-            console.log('No new messages found since last sync');
+            console.log('No new messages found within the specified time period');
             
             // Get last message timestamp
             const lastTimestamp = getLastMessageTimestamp(db, targetGroupJid);
             if (lastTimestamp > 0) {
               const lastDate = new Date(lastTimestamp * 1000);
-              console.log(`Last message in database from: ${lastDate.toLocaleString()}`);
+              console.log(`Last message in database from: ${new Date(lastTimestamp * 1000).toISOString()}`);
             } else {
               console.log('No previous messages found in the database');
             }
             
-            // Wait a bit longer to see if any late history events arrive
+            // Wait a bit longer to see if any delayed history events arrive
             console.log('Waiting 5 more seconds for any delayed history events...');
             await new Promise(resolve => setTimeout(resolve, 5000));
           }
