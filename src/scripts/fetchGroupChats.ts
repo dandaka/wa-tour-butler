@@ -113,45 +113,42 @@ async function fetchGroupChats() {
   
   // Create an object to store the last messages from groups
   const groupMessages: Record<string, proto.IWebMessageInfo[]> = {};
-
-  /**
-   * Fetch messages from a specific group - utility function
-   */
-  async function fetchMessagesFromGroup(jid: string) {
-    try {
-      // Initialize the messages array for this group if it doesn't exist
-      if (!groupMessages[jid]) {
-        groupMessages[jid] = [];
-      }
-
-      console.log(`Attempting to fetch historical messages from group: ${jid}`);
+  let historyReceived = false;
+  let groupsFound = false;
+  
+  // Receive message history from Baileys
+  sock.ev.on('messaging-history.set', ({
+    chats,
+    contacts,
+    messages,
+    syncType
+  }) => {
+    console.log(`Received messaging history - syncType: ${syncType}`);
+    console.log(`Received ${chats.length} chats, ${contacts.length} contacts, ${messages.length} messages`);
+    
+    historyReceived = true;
+    
+    // Process and categorize messages by their group jid
+    for (const msg of messages) {
+      const jid = msg.key.remoteJid;
       
-      // Attempt to fetch historical messages using available methods
-      // Note: Direct history fetching is limited in newer Baileys versions
-      console.log(`Attempting to fetch messages for ${jid} using alternative method...`);
-      try {
-        // Try to manually load messages using a different approach
-        await sock.sendMessage(jid, { text: '.dummy' });
-        // The dummy message will trigger messages.upsert for this group
-        // which will then load messages in the background
-      } catch (err) {
-        console.log(`Could not send message to ${jid}`);
+      if (jid && jid.endsWith('@g.us')) {
+        if (!groupMessages[jid]) {
+          groupMessages[jid] = [];
+        }
+        
+        // Add message to the group collection
+        groupMessages[jid].push(msg);
+        
+        // Keep only the last MESSAGE_LIMIT messages for each group
+        if (groupMessages[jid].length > MESSAGE_LIMIT) {
+          groupMessages[jid] = groupMessages[jid].slice(-MESSAGE_LIMIT);
+        }
       }
-      
-      // Result placeholder for TypeScript
-      const result = { messages: [] };
-
-      if (result.messages && result.messages.length > 0) {
-        console.log(`Found ${result.messages.length} historical messages`);        
-        // Add to our collection
-        groupMessages[jid] = result.messages;
-      } else {
-        console.log(`No historical messages found for group ${jid}`);
-      }
-    } catch (error) {
-      console.error(`Error fetching messages from ${jid}:`, error);
     }
-  }
+    
+    console.log(`Populated message history for ${Object.keys(groupMessages).length} groups`);
+  });
   
   // Listen for new incoming messages as well
   sock.ev.on('messages.upsert', ({ messages }) => {
@@ -196,16 +193,22 @@ async function fetchGroupChats() {
           process.exit(0);
         }
         
-        // Try to fetch historical messages for each group
-        console.log('Fetching messages from each group...');
-        for (const groupId of Object.keys(groups)) {
-          try {
-            await fetchMessagesFromGroup(groupId);
-            // Add a small delay between group fetches to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 500));
-          } catch (error) {
-            console.error(`Error processing group ${groupId}:`, error);
-          }
+        groupsFound = true;
+        
+        // Wait for history to be received via messaging-history.set event
+        console.log('Waiting for message history to be received from WhatsApp...');
+        
+        // Wait up to 10 seconds for history to be received
+        const startTime = Date.now();
+        const maxWaitTime = 10000; // 10 seconds
+        
+        while (!historyReceived && Date.now() - startTime < maxWaitTime) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          console.log('Still waiting for message history...');
+        }
+        
+        if (!historyReceived) {
+          console.log('No message history received within timeout period.');
         }
         
         // Wait a moment to collect any additional live messages
