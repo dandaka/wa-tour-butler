@@ -84,6 +84,47 @@ function formatPhoneNumber(phoneNumber: string | null): string {
 }
 
 /**
+ * Process message content to handle edited messages and beautify
+ */
+function processMessageContent(content: string): string {
+  // Check if the message contains JSON with editedMessage structure
+  if (content.includes('editedMessage')) {
+    try {
+      // Try to parse the JSON
+      const json = JSON.parse(content);
+      
+      // Extract the actual message text from the edited message structure
+      if (json.editedMessage?.message?.protocolMessage?.editedMessage?.conversation) {
+        const extractedText = json.editedMessage.message.protocolMessage.editedMessage.conversation;
+        return extractedText + '\n[edited]';
+      }
+    } catch (error) {
+      // If there's an error parsing JSON, just return the original content
+    }
+  }
+  
+  return content;
+}
+
+/**
+ * Display a message in a formatted way
+ */
+function displayMessage(msg: any, index: number, total: number) {
+  const timestamp = formatTimestamp(msg.timestamp);
+  const sender = msg.fromMe ? 'You' : (msg.participantName || formatPhoneNumber(msg.participant));
+  const rawContent = msg.content || '';
+  
+  // Process the content to handle edited messages
+  const processedContent = processMessageContent(rawContent);
+  
+  console.log(`${COLORS.dim}[${index + 1}/${total}] ${COLORS.reset}`);
+  console.log(`${COLORS.fg.yellow}${timestamp}${COLORS.reset}`);
+  console.log(`${COLORS.fg.cyan}${sender}:${COLORS.reset}`);
+  console.log(`${processedContent}`);
+  console.log(`${COLORS.dim}---${COLORS.reset}\n`);
+}
+
+/**
  * Main function to display all messages from the target group
  */
 async function displayGroupMessages() {
@@ -149,14 +190,7 @@ async function displayGroupMessages() {
     
     // Display messages
     messages.forEach((msg, index) => {
-      const timestamp = formatTimestamp(msg.timestamp);
-      const sender = msg.fromMe ? 'You' : (msg.participantName || formatPhoneNumber(msg.participant));
-      
-      console.log(`${COLORS.dim}[${index + 1}/${count}] ${COLORS.reset}`);
-      console.log(`${COLORS.fg.yellow}${timestamp}${COLORS.reset}`);
-      console.log(`${COLORS.fg.cyan}${sender}:${COLORS.reset}`);
-      console.log(`${msg.content}`);
-      console.log(`${COLORS.dim}---${COLORS.reset}\n`);
+      displayMessage(msg, index, count);
     });
     
     // Display usage hints
