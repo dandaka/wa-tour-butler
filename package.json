@@ -9,7 +9,6 @@
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
     "fetch-groups": "ts-node src/scripts/fetchGroupChats.ts",
-    "sync-group-db": "ts-node src/scripts/groupDbSync.ts",
     "whatsapp-login": "ts-node src/scripts/whatsappLogin.ts",
     "sync-messages": "ts-node src/scripts/syncGroupMessages.ts"
   },
