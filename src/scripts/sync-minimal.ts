@@ -31,11 +31,17 @@ class SimpleCache {
 }
 // Define helper functions directly in this file instead of importing
 
+// Create data directory if it doesn't exist
+const DATA_DIR = path.join(process.cwd(), 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
 // Store path for session data
 const SESSION_DIR = path.join(process.cwd(), 'session');
 
-// SQLite database path
-const DB_PATH = path.join(process.cwd(), 'group_messages.db');
+// SQLite database path in the data folder
+const DB_PATH = path.join(DATA_DIR, 'group_messages.db');
 
 // Target group name
 const TARGET_GROUP_NAME = "Dom19h Saldanha P4ALL M4+";
@@ -49,6 +55,29 @@ async function minimalSync() {
   // Initialize database connection
   const db = new Database(DB_PATH);
   console.log(`Database initialized at ${DB_PATH}`);
+  
+  // Initialize database tables if they don't exist
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS group_info (
+      jid TEXT PRIMARY KEY,
+      name TEXT,
+      participants INTEGER,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT,
+      remoteJid TEXT,
+      fromMe INTEGER,
+      timestamp INTEGER,
+      pushName TEXT,
+      participant TEXT,
+      message TEXT,
+      PRIMARY KEY (id, remoteJid)
+    );
+  `);
+  console.log('Database tables verified');
   
   // Initialize auth state
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
@@ -299,7 +328,7 @@ async function minimalSync() {
   async function storeGroupInfo(jid: string, name: string, description: string | null, participantCount: number) {
     try {
       const stmt = db.prepare(`
-        INSERT OR REPLACE INTO groups (jid, name, description, participantCount, lastUpdated) 
+        INSERT OR REPLACE INTO group_info (jid, name, description, participants, created_at) 
         VALUES (?, ?, ?, ?, ?)
       `);
       

@@ -1,6 +1,8 @@
 session
 
 # WhatsApp message data files (contains private messages)
+data/
+# Legacy paths (in case any still exist)
 group_messages.db
 group_messages.json
 group_messages*.db
