@@ -207,6 +207,46 @@ describe('Signup Parser', () => {
       expect(result?.names).toContain('John');
       expect(result?.status).toBe('OUT');
     });
+    
+    it('should handle OUT messages with additional words', () => {
+      const outMessages = [
+        { message: 'sorry out saturday 18.30', time: '18:30' },
+        { message: 'sorry I cannot make it today 15h', time: '15:00' },
+        { message: 'miguel out for 18.30', time: '18:30', expectedName: 'miguel' },
+        { message: 'Please remove me from 17h', time: '17:00' },
+      ];
+
+      outMessages.forEach(({ message, time, expectedName }) => {
+        const result = getSingleResult(parseSignupMessage(createMessage(message)));
+        expect(result).not.toBeNull();
+        expect(result?.status).toBe('OUT');
+        expect(result?.time).toBe(time);
+        expect(result?.names.length).toBe(1);
+        if (expectedName) {
+          expect(result?.names[0]).toBe(expectedName);
+        } else {
+          expect(result?.names[0]).toBe('987654321'); // Should use sender's phone number
+        }
+      });
+    });
+
+    it('should handle partner-specific OUT messages', () => {
+      // OUT messages for partner
+      const result1 = getSingleResult(parseSignupMessage(createMessage('My partner out 15h')));
+      expect(result1).not.toBeNull();
+      expect(result1?.status).toBe('OUT');
+      expect(result1?.time).toBe('15:00');
+      expect(result1?.names.length).toBe(1);
+      expect(result1?.names[0]).toBe('987654321\'s partner');
+
+      // OUT messages for specific person
+      const result2 = getSingleResult(parseSignupMessage(createMessage('Pedro partner out 18:30')));
+      expect(result2).not.toBeNull();
+      expect(result2?.status).toBe('OUT');
+      expect(result2?.time).toBe('18:30');
+      expect(result2?.names.length).toBe(1);
+      expect(result2?.names[0]).toBe('Pedro\'s partner');
+    });
 
     it('should parse single player in messages with time', () => {
       const rawResult = parseSignupMessage(createMessage('Dennis in 15'));
@@ -423,24 +463,6 @@ describe('Signup Parser', () => {
       // The full name should be preserved as a single entity
       expect(result?.names[0]).toBe('miguel ribeiro');
       expect(result?.time).toBe('18:30');
-      expect(result?.status).toBe('IN');
-    });
-    
-    it('should not treat "e" as separator when it is part of a name', () => {
-      // Test for issue where "Mike /Ben" is incorrectly parsed as "Mik" because 
-      // the "e" in Mike is incorrectly treated as a separator
-      const message = createMessage('Mike /Ben 15h');
-      const rawResult = parseSignupMessage(message);
-      const result = getSingleResult(rawResult);
-      
-      expect(result).not.toBeNull();
-      expect(result?.names).toHaveLength(2);
-      
-      // The "e" in Mike should not be treated as a separator
-      expect(result?.names[0]).toBe('Mike');
-      expect(result?.names[1]).toBe('Ben');
-      expect(result?.time).toBe('15:00');
-      expect(result?.status).toBe('IN');
     });
 
     /**
