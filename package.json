@@ -17,6 +17,8 @@
     "fetch-history-poc": "ts-node src/scripts/fetch-history-poc.ts",
     "fetch-history-fixed": "ts-node src/scripts/fetch-history-poc-fixed.ts",
     "fetch-history-simple": "ts-node src/scripts/fetch-history-simple.ts",
+    "store-messages": "ts-node src/scripts/store-messages.ts",
+    "view-db": "ts-node src/scripts/view-db-messages.ts",
     "view-messages": "ts-node src/scripts/viewGroupMessages.ts"
   },
   "keywords": [
