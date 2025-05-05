@@ -45,11 +45,13 @@ describe('Signup Parser', () => {
    */
   describe('parseSignupMessage', () => {
     // Helper function to create a test message
-    const createMessage = (content: string): WhatsAppMessage => ({
-      sender: '123456789@s.whatsapp.net',
-      timestamp: Date.now() / 1000,
-      content
-    });
+    function createMessage(content: string): WhatsAppMessage {
+      return {
+        sender: 'test-sender@s.whatsapp.net',
+        timestamp: Date.now(),
+        content
+      };
+    }
 
     /**
      * System and special messages
@@ -171,6 +173,30 @@ describe('Signup Parser', () => {
       const result2 = parseSignupMessage(createMessage('Bob in with partner 17:00'));
       expect(result2).not.toBeNull();
       expect(result2?.names).toEqual(['Bob', 'Bob\'s partner']);
+    });
+
+    /**
+     * Test for handling 'at' in team names
+     */
+    it('should correctly handle "at" in team messages', () => {
+      const result = parseSignupMessage(createMessage('Martin and Peter at 15h'));
+      expect(result).not.toBeNull();
+      expect(result?.names).toEqual(['Martin', 'Peter']);
+      expect(result?.time).toBe('15:00');
+      expect(result?.status).toBe('IN');
+    });
+
+    /**
+     * Test for phone number formatting in anonymous messages
+     */
+    it('should use phone number for anonymous messages', () => {
+      const message = createMessage('In 15h');
+      message.sender = '351935780509@s.whatsapp.net';
+      const result = parseSignupMessage(message);
+      expect(result).not.toBeNull();
+      expect(result?.names).toEqual(['935780509']);
+      expect(result?.time).toBe('15:00');
+      expect(result?.status).toBe('IN');
     });
 
     /**

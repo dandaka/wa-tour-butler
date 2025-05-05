@@ -11,14 +11,14 @@
 
 ## Players by Time Slot
 
-### 15:00 Time Slot (27 players)
+### 15:00 Time Slot (28 players)
 
 1. Rudi
 2. Dani
 3. Giu
 4. Giu's partner
 5. Patrik
-6. In
+6. 935780509
 7. Philipp
 8. Diego
 9. Vlad Ra
@@ -38,8 +38,9 @@
 23. Rafael
 24. Gui
 25. Martin
-26. Peter at
+26. Peter
 27. Dan
+28. 961040912
 
 ### 17:00 Time Slot (7 players)
 
@@ -97,7 +98,7 @@ thanks
 ### Signup #5 (6:59:15 PM)
 - Original message: "In 15h"
 - Sender: 351935780509@s.whatsapp.net
-- Parsed names: In
+- Parsed names: 935780509
 - Time slot: 15:00
 - Status: IN
 
@@ -204,7 +205,7 @@ Julien
 ### Signup #20 (7:34:49 PM)
 - Original message: "Martin and Peter at 15h"
 - Sender: 351936836204@s.whatsapp.net
-- Parsed names: Martin, Peter at
+- Parsed names: Martin, Peter
 - Time slot: 15:00
 - Status: IN
 
@@ -236,7 +237,14 @@ thanks
 - Time slot: 15:00
 - Status: IN
 
-## Final Player List (41 players)
+### Signup #25 (8:51:20 PM)
+- Original message: "15 and 17"
+- Sender: 351961040912@s.whatsapp.net
+- Parsed names: 961040912
+- Time slot: 15:00
+- Status: IN
+
+## Final Player List (42 players)
 
 1. Rudi
 2. Dani
@@ -245,7 +253,7 @@ thanks
 5. Bob
 6. Bob's partner
 7. Patrik
-8. In
+8. 935780509
 9. Philipp
 10. Diego
 11. Vlad Ra
@@ -272,7 +280,7 @@ thanks
 Julien
 32. Gui
 33. Martin
-34. Peter at
+34. Peter
 35. Dan
 36. can you pl
 37. as
@@ -281,3 +289,4 @@ Julien
 thanks
 40. philipp
 41. ffing
+42. 961040912

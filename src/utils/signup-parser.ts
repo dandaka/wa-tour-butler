@@ -27,6 +27,17 @@ export interface ParsedSignup {
 }
 
 /**
+ * Extract a user-friendly name from a WhatsApp phone number
+ */
+function extractNameFromPhoneNumber(phoneNumber: string): string {
+  // Remove the @s.whatsapp.net suffix if present
+  const cleanPhone = phoneNumber.replace('@s.whatsapp.net', '');
+  // Format it with last 9 digits
+  const lastNine = cleanPhone.substring(Math.max(0, cleanPhone.length - 9));
+  return lastNine;
+}
+
+/**
  * Parse a WhatsApp message to determine if it's a signup message
  * and extract relevant information
  */
@@ -52,6 +63,20 @@ export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | nul
   // Extract time if present (common formats: 15h, 15:00, etc.)
   const timeMatch = extractTimePattern(content);
   const time = timeMatch ? formatTimeMatch(timeMatch) : undefined;
+  
+  // Special case for just "In [time]" with no name
+  const inTimePattern = /^\s*in\s+\d+\s*(?:h|:|\.)\s*/i;
+  if (inTimePattern.test(content) && time) {
+    const senderName = extractNameFromPhoneNumber(message.sender);
+    return {
+      originalMessage: content,
+      names: [senderName],
+      time,
+      status: 'IN',
+      timestamp: message.timestamp,
+      sender: message.sender
+    };
+  }
   
   // Try different parsing strategies in order
   
@@ -118,7 +143,25 @@ export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | nul
   // 3. Try general word splitting for other formats
   const names = parseGeneralMessage(content);
   
-  // Only return a result if we found at least one name
+  // Special case for just "In [time]" messages
+  // When we can extract time but no names, use the sender's phone number
+  if (names.length === 0 && time) {
+    // Check if it looks like a registration intent message with no name
+    if (/^\s*in\b/i.test(content.trim()) || content.includes('15')) {
+      const senderName = extractNameFromPhoneNumber(message.sender);
+      return {
+        originalMessage: content,
+        names: [senderName],
+        time,
+        status: 'IN',
+        timestamp: message.timestamp,
+        sender: message.sender
+      };
+    }
+    return null;
+  }
+  
+  // General case - only return a result if we found at least one name
   if (names.length === 0) {
     return null;
   }
@@ -244,6 +287,22 @@ function processPartnerNames(names: string[]): string[] {
  * e.g., "Name1 and Name2 15h"
  */
 function parseTeamMessage(content: string): string[] | null {
+  // Handle "at" in messages like "Martin and Peter at 15h"
+  const atTimePattern = /^([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+and\s+|\s+e\s+|\s+&\s+)(.*?)\s+at\s+/i;
+  const atTimeMatch = content.match(atTimePattern);
+  if (atTimeMatch) {
+    let name1 = atTimeMatch[1].trim();
+    let name2 = atTimeMatch[3].trim();
+    
+    // Clean up names
+    name1 = cleanName(name1);
+    name2 = cleanName(name2);
+    
+    if (name1.length > 1 && name2.length > 1) {
+      return [name1, name2];
+    }
+  }
+  
   // Pattern for team messages: "Name1 and Name2", "Name1 & Name2", etc.
   const teamPattern = /^([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+[&\/]\s+|\s+e\s+|\s+and\s+|\s+\+)([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+.*)?$/i;
   const teamMatch = content.match(teamPattern);
@@ -252,9 +311,10 @@ function parseTeamMessage(content: string): string[] | null {
     let name1 = teamMatch[1].trim();
     let name2 = teamMatch[3].trim();
     
-    // Check if either name ends with "in" command word and remove it
+    // Remove common command words from names
     name1 = name1.replace(/\s+in\b/i, '');
     name2 = name2.replace(/\s+in\b/i, '');
+    name2 = name2.replace(/\s+at\b/i, ''); // Remove 'at' from second name
     
     // Special case for "Name+partner" or "Name & partner"
     if (name2.toLowerCase() === 'partner') {
@@ -294,6 +354,13 @@ function parseSinglePlayerMessage(content: string): string | null {
  * Parse a general message by splitting it into parts based on common separators
  */
 function parseGeneralMessage(content: string): string[] {
+  // Special case for just "In" commands without names
+  if (/^\s*in\s+\d+\s*(?:h|:|\.)\s*/i.test(content)) {
+    // Don't extract any names for plain "in 15h" messages
+    // We'll handle this at the caller level
+    return [];
+  }
+  
   // Handle special cases first
   // 1. Pattern for Giu+partner format
   const partnerPlusPattern = /([A-Za-z\u00C0-\u017F]+)\s*[+]\s*partner/i;
@@ -340,6 +407,7 @@ function cleanName(name: string): string {
     .replace(/^\s*[-•]?\s*/, '') // Remove leading dashes or bullets
     .replace(/\s+/, ' ') // Normalize spaces
     .replace(/\s+in\b|\s+out\b/i, '') // Remove trailing in/out words
+    .replace(/\s+at\b/i, '') // Remove 'at' as it's usually related to time
     .replace(/[\d:]+h?/, '') // Remove time patterns
     .replace(/\s*@\s*/, '') // Remove @ symbol
     .replace(/\s*-\s*/, '') // Remove dashes
