@@ -16,6 +16,7 @@
     "sync-minimal-v3": "ts-node src/scripts/sync-minimal-v3.ts",
     "fetch-history-poc": "ts-node src/scripts/fetch-history-poc.ts",
     "fetch-history-fixed": "ts-node src/scripts/fetch-history-poc-fixed.ts",
+    "fetch-history-simple": "ts-node src/scripts/fetch-history-simple.ts",
     "view-messages": "ts-node src/scripts/viewGroupMessages.ts"
   },
   "keywords": [
