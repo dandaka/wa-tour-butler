@@ -9,6 +9,7 @@
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
     "test": "jest",
+    "parse": "ts-node src/scripts/process-signups.ts 120363028202164779@g.us ./signup-results.md 1746467935",
     "parse-signups": "ts-node src/scripts/process-signups.ts 120363028202164779@g.us ./signup-results.md 1746467935",
     "fetch-groups": "ts-node src/scripts/fetchGroupChats.ts",
     "whatsapp-login": "ts-node src/scripts/whatsappLogin.ts",

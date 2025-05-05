@@ -11,7 +11,7 @@
 
 ## Players by Time Slot
 
-### 15:00 Time Slot (28 players)
+### 15:00 Time Slot (29 players)
 
 1. Rudi
 2. Dani
@@ -39,8 +39,9 @@
 24. Martin
 25. Peter
 26. Dan
-27. Mik
-28. 961040912
+27. Mike
+28. Ben
+29. 961040912
 
 ### 17:00 Time Slot (9 players)
 
@@ -59,8 +60,8 @@
 1. Julien
 2. Mark
 3. Ben
-4. philipp
-5. ffing
+4. thanks
+5. philipp effinger
 
 ## Signup Processing Log
 
@@ -223,27 +224,33 @@
 - Time slot: 15:00
 - Status: IN
 
-### Signup #24 (8:37:45 PM)
-- Original message: "philipp effinger"
+### Signup #24 (8:37:38 PM)
+- Original message: "thanks"
 - Sender: 33621666469@s.whatsapp.net
-- Parsed names: philipp, ffing
+- Parsed names: thanks
 - Status: IN
 
-### Signup #25 (8:44:13 PM)
+### Signup #25 (8:37:45 PM)
+- Original message: "philipp effinger"
+- Sender: 33621666469@s.whatsapp.net
+- Parsed names: philipp effinger
+- Status: IN
+
+### Signup #26 (8:44:13 PM)
 - Original message: "Mike /Ben 15h"
 - Sender: 351933928517@s.whatsapp.net
-- Parsed names: Mik
+- Parsed names: Mike, Ben
 - Time slot: 15:00
 - Status: IN
 
-### Signup #26 (8:51:20 PM)
+### Signup #27 (8:51:20 PM)
 - Original message: "15 and 17"
 - Sender: 351961040912@s.whatsapp.net
 - Parsed names: 961040912
 - Time slot: 15:00
 - Status: IN
 
-## Final Player List (38 players)
+## Final Player List (37 players)
 
 1. Rudi
 2. Dani
@@ -279,7 +286,6 @@
 32. Martin
 33. Peter
 34. Dan
-35. philipp
-36. ffing
-37. Mik
-38. 961040912
+35. thanks
+36. philipp effinger
+37. 961040912

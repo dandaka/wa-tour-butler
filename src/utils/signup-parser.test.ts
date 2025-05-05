@@ -358,6 +358,23 @@ describe('Signup Parser', () => {
       expect(result?.time).toBe('15:00');
       expect(result?.status).toBe('IN');
     });
+    
+    it('should not treat "e" as separator when it is part of a name', () => {
+      // Test for issue where "Mike /Ben" is incorrectly parsed as "Mik" because 
+      // the "e" in Mike is incorrectly treated as a separator
+      const message = createMessage('Mike /Ben 15h');
+      const rawResult = parseSignupMessage(message);
+      const result = getSingleResult(rawResult);
+      
+      expect(result).not.toBeNull();
+      expect(result?.names).toHaveLength(2);
+      
+      // The "e" in Mike should not be treated as a separator
+      expect(result?.names[0]).toBe('Mike');
+      expect(result?.names[1]).toBe('Ben');
+      expect(result?.time).toBe('15:00');
+      expect(result?.status).toBe('IN');
+    });
 
     /**
      * Test for handling multiple time slots

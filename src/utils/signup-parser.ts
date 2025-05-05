@@ -77,13 +77,16 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
     };
   }
   
-  // Special case for handling slash notation like "Julien / Mark - 15h" or "Mike/Ben 15h"
-  // Version with spaces around slash
-  const slashTimePattern = /^([A-Za-z\u00C0-\u017F\s'\-\.]+)\s*\/\s*([A-Za-z\u00C0-\u017F\s'\-\.]+)(?:\s*-\s*(\d{1,2}(?:[h:.]\d{0,2})?)|$)/i;
-  // Version without spaces around slash
-  const noSpaceSlashPattern = /^([A-Za-z\u00C0-\u017F'\-\.]+)\/([A-Za-z\u00C0-\u017F'\-\.]+)(?:\s+(?:-\s*)?(\d{1,2}(?:[h:.]\d{0,2})?)|$)/i;
-  // Try both patterns
-  const slashTimeMatch = content.match(slashTimePattern) || content.match(noSpaceSlashPattern);
+  // Special case for handling all variations of slash notation:
+  // - "Julien / Mark - 15h" (spaces around slash)
+  // - "Mike/Ben 15h" (no spaces)
+  // - "Mike /Ben" (space before slash but not after)
+  // - "Mike/ Ben" (space after slash but not before)
+  
+  // Flexible slash pattern that handles all spacing variations
+  const slashPattern = /^([A-Za-z\u00C0-\u017F\s'\-\.]+?)\s*\/\s*([A-Za-z\u00C0-\u017F\s'\-\.]+?)(?:\s*-?\s*(\d{1,2}(?:[h:.]\d{0,2})?)|$)/i;
+  
+  const slashTimeMatch = content.match(slashPattern);
   if (slashTimeMatch && slashTimeMatch[1] && slashTimeMatch[2]) {
     // Don't clean the names to preserve the exact name structure
     const name1 = slashTimeMatch[1].trim();
@@ -463,7 +466,9 @@ function parseGeneralMessage(content: string): string[] {
     return [atTimeMatch[1].trim()];
   }
 
-  const separators = /\s*(?:[&+,\/]|e|and)\s*/i;
+  // Make sure 'e' is only treated as a separator when it's surrounded by spaces (like "Player1 e Player2")
+  // not when it's part of a name (like "Mike")
+  const separators = /\s*(?:[&+,\/]|\s+e\s+|and)\s*/i;
   const parts = content.split(separators);
   const names: string[] = [];
   
