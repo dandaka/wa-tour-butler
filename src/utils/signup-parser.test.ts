@@ -28,6 +28,15 @@ describe('Signup Parser', () => {
         fail('Expected timeMatch regex to match "15:30"');
       }
     });
+    
+    it('should format "18.30" correctly', () => {
+      const timeMatch = '18.30'.match(/\b(\d{1,2})\.(\d{2})\b/i);
+      if (timeMatch) {
+        expect(formatTimeMatch(timeMatch)).toBe('18:30');
+      } else {
+        fail('Expected timeMatch regex to match "18.30"');
+      }
+    });
 
     it('should format "15" correctly', () => {
       const timeMatch = '15'.match(/\b(\d{1,2})[h:](\d{2})?\b|\b(\d{1,2})h\b/i);
@@ -356,6 +365,21 @@ describe('Signup Parser', () => {
       expect(result?.names[0]).toBe('Mike');
       expect(result?.names[1]).toBe('Ben');
       expect(result?.time).toBe('15:00');
+      expect(result?.status).toBe('IN');
+    });
+    
+    it('should correctly parse time with dot format like "18.30"', () => {
+      // Test for parsing a message with time in dot format
+      const message = createMessage('miguel ribeiro 18.30');
+      const rawResult = parseSignupMessage(message);
+      const result = getSingleResult(rawResult);
+      
+      expect(result).not.toBeNull();
+      expect(result?.names).toHaveLength(1);
+      
+      // The full name should be preserved as a single entity
+      expect(result?.names[0]).toBe('miguel ribeiro');
+      expect(result?.time).toBe('18:30');
       expect(result?.status).toBe('IN');
     });
     
