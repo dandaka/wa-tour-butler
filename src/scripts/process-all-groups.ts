@@ -12,8 +12,9 @@ import { spawn } from 'child_process';
 import csv from 'csv-parser';
 
 // Output directory for results and logs
-const OUTPUT_DIR = path.join(process.cwd(), 'data', 'signup-results');
-const LOG_DIR = path.join(process.cwd(), 'data', 'logs');
+const PROJECT_ROOT = process.cwd();
+const OUTPUT_DIR = path.join(PROJECT_ROOT, 'data', 'signup-results');
+const LOG_DIR = path.join(PROJECT_ROOT, 'data', 'logs');
 
 // Use a specific timestamp that works for processing these messages
 // May 5, 2025, 6:58:55 PM - this is known to work with the existing messages
@@ -61,13 +62,20 @@ function processGroup(group: GroupInfo): Promise<void> {
     const logStream = fs.createWriteStream(logFile, { flags: 'w' });
     
     // Run the process-signups.ts script with verbose output
-    const process = spawn('ts-node', [
+    // For Kia4all group, let it auto-detect the registration timestamp instead of forcing a specific one
+    const processArgs = [
       'src/scripts/process-signups.ts',
       group.ID,
       outputFile,
-      REGISTRATION_TIMESTAMP.toString(),
       '--verbose'  // Add verbose flag to ensure detailed parsing is shown
-    ]);
+    ];
+    
+    // Only force timestamp for non-Kia4all groups
+    if (!group.ID.includes('351919755889-1528547030')) {
+      processArgs.splice(3, 0, REGISTRATION_TIMESTAMP.toString());
+    }
+    
+    const process = spawn('ts-node', processArgs);
     
     // Pipe stdout and stderr to log file
     process.stdout.pipe(logStream);
