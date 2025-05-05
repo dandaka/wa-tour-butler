@@ -30,40 +30,37 @@
 15. Dennis
 16. Miguel
 17. Miguel's partner
-18. Juli
-19. MarkJuli
-20. Mik
-21. Kevin
-22. Kevin's partner
-23. Rafael
-24. Gui
-25. Martin
-26. Peter
-27. Dan
+18. Julien
+19. Mark
+20. Kevin
+21. Kevin's partner
+22. Rafael
+23. Gui
+24. Martin
+25. Peter
+26. Dan
+27. Mik
 28. 961040912
 
-### 17:00 Time Slot (7 players)
+### 17:00 Time Slot (9 players)
 
 1. Bob
 2. Bob's partner
-3. Miguel
-4. Duarte
-5. Rui C
-6. Manel P -
-7. Rub
+3. Julien
+4. Mike
+5. Miguel
+6. Duarte
+7. Rui C
+8. Manel P -
+9. Ruben
 
-### Time Not Specified (8 players)
+### Time Not Specified (5 players)
 
 1. Julien
-2. Mark 
-Julien
-3. can you pl
-4. as
-5. add Philipp to th
-6. group ! 
-thanks
-7. philipp
-8. ffing
+2. Mark
+3. Ben
+4. philipp
+5. ffing
 
 ## Signup Processing Log
 
@@ -145,106 +142,108 @@ thanks
 - Status: IN
 
 ### Signup #12 (7:00:18 PM)
-- Original message: "Julien / Mark - 15h
-Julien / Mike - 17h"
+- Original message: "Julien / Mark - 15h"
 - Sender: 351910686564@s.whatsapp.net
-- Parsed names: Juli, MarkJuli, Mik
+- Parsed names: Julien, Mark
 - Time slot: 15:00
 - Status: IN
 
-### Signup #13 (7:01:02 PM)
+### Signup #13 (7:00:18 PM)
+- Original message: "Julien / Mike - 17h"
+- Sender: 351910686564@s.whatsapp.net
+- Parsed names: Julien, Mike
+- Time slot: 17:00
+- Status: IN
+
+### Signup #14 (7:01:02 PM)
 - Original message: "Miguel and Duarte in 17h"
 - Sender: 351919305285@s.whatsapp.net
 - Parsed names: Miguel, Duarte
 - Time slot: 17:00
 - Status: IN
 
-### Signup #14 (7:04:39 PM)
+### Signup #15 (7:04:39 PM)
 - Original message: "Kevin & Partner in 15h"
 - Sender: 4915908498953@s.whatsapp.net
 - Parsed names: Kevin, Kevin's partner
 - Time slot: 15:00
 - Status: IN
 
-### Signup #15 (7:05:02 PM)
+### Signup #16 (7:05:02 PM)
 - Original message: "Rafael in 15h"
 - Sender: 351935231493@s.whatsapp.net
 - Parsed names: Rafael
 - Time slot: 15:00
 - Status: IN
 
-### Signup #16 (7:17:46 PM)
+### Signup #17 (7:17:46 PM)
 - Original message: "Rui C e Manel P - 17h"
 - Sender: 351962373985@s.whatsapp.net
 - Parsed names: Rui C, Manel P -
 - Time slot: 17:00
 - Status: IN
 
-### Signup #17 (7:24:38 PM)
+### Signup #18 (7:24:38 PM)
 - Original message: "Ruben in @ 17.00"
 - Sender: 447412087936@s.whatsapp.net
-- Parsed names: Rub
+- Parsed names: Ruben
 - Time slot: 17:00
 - Status: IN
 
-### Signup #18 (7:25:13 PM)
-- Original message: "Julien / Mark 
-Julien / Ben"
+### Signup #19 (7:25:13 PM)
+- Original message: "Julien / Mark"
 - Sender: 351910686564@s.whatsapp.net
-- Parsed names: Julien, Mark 
-Julien
+- Parsed names: Julien, Mark
 - Status: IN
 
-### Signup #19 (7:30:29 PM)
+### Signup #20 (7:25:13 PM)
+- Original message: "Julien / Ben"
+- Sender: 351910686564@s.whatsapp.net
+- Parsed names: Julien, Ben
+- Status: IN
+
+### Signup #21 (7:30:29 PM)
 - Original message: "Gui 15h00"
 - Sender: 351936836204@s.whatsapp.net
 - Parsed names: Gui
 - Time slot: 15:00
 - Status: IN
 
-### Signup #20 (7:34:49 PM)
+### Signup #22 (7:34:49 PM)
 - Original message: "Martin and Peter at 15h"
 - Sender: 351936836204@s.whatsapp.net
 - Parsed names: Martin, Peter
 - Time slot: 15:00
 - Status: IN
 
-### Signup #21 (7:40:01 PM)
+### Signup #23 (7:40:01 PM)
 - Original message: "Dan 15h"
 - Sender: 41786396442@s.whatsapp.net
 - Parsed names: Dan
 - Time slot: 15:00
 - Status: IN
 
-### Signup #22 (8:37:38 PM)
-- Original message: "can you please add Philipp to the group ! 
-thanks"
-- Sender: 33621666469@s.whatsapp.net
-- Parsed names: can you pl, as, add Philipp to th, group ! 
-thanks
-- Status: IN
-
-### Signup #23 (8:37:45 PM)
+### Signup #24 (8:37:45 PM)
 - Original message: "philipp effinger"
 - Sender: 33621666469@s.whatsapp.net
 - Parsed names: philipp, ffing
 - Status: IN
 
-### Signup #24 (8:44:13 PM)
+### Signup #25 (8:44:13 PM)
 - Original message: "Mike /Ben 15h"
 - Sender: 351933928517@s.whatsapp.net
 - Parsed names: Mik
 - Time slot: 15:00
 - Status: IN
 
-### Signup #25 (8:51:20 PM)
+### Signup #26 (8:51:20 PM)
 - Original message: "15 and 17"
 - Sender: 351961040912@s.whatsapp.net
 - Parsed names: 961040912
 - Time slot: 15:00
 - Status: IN
 
-## Final Player List (42 players)
+## Final Player List (38 players)
 
 1. Rudi
 2. Dani
@@ -265,28 +264,22 @@ thanks
 17. Dennis
 18. Miguel
 19. Miguel's partner
-20. Juli
-21. MarkJuli
-22. Mik
+20. Julien
+21. Mark
+22. Mike
 23. Duarte
 24. Kevin
 25. Kevin's partner
 26. Rafael
 27. Rui C
 28. Manel P -
-29. Rub
-30. Julien
-31. Mark 
-Julien
-32. Gui
-33. Martin
-34. Peter
-35. Dan
-36. can you pl
-37. as
-38. add Philipp to th
-39. group ! 
-thanks
-40. philipp
-41. ffing
-42. 961040912
+29. Ruben
+30. Ben
+31. Gui
+32. Martin
+33. Peter
+34. Dan
+35. philipp
+36. ffing
+37. Mik
+38. 961040912

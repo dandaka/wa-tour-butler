@@ -223,26 +223,32 @@ function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistr
       }
       
       // Parse message for signup information using our modular parser
-      const parsedSignup = parseSignupMessage(message);
-      if (parsedSignup) {
-        result.signups.push(parsedSignup);
+      const parsedResult = parseSignupMessage(message);
+      if (parsedResult) {
+        // Handle both single result and array of results
+        const signups = Array.isArray(parsedResult) ? parsedResult : [parsedResult];
         
-        // Update player list based on signup status
-        if (parsedSignup.status === 'IN') {
-          // Add players to the list
-          parsedSignup.names.forEach(name => {
-            if (!result.finalPlayerList.includes(name)) {
-              result.finalPlayerList.push(name);
-            }
-          });
-        } else if (parsedSignup.status === 'OUT') {
-          // Remove players from the list
-          parsedSignup.names.forEach(name => {
-            const index = result.finalPlayerList.indexOf(name);
-            if (index !== -1) {
-              result.finalPlayerList.splice(index, 1);
-            }
-          });
+        // Process each signup
+        for (const signup of signups) {
+          result.signups.push(signup);
+          
+          // Update player list based on signup status
+          if (signup.status === 'IN') {
+            // Add players to the list
+            signup.names.forEach((name: string) => {
+              if (!result.finalPlayerList.includes(name)) {
+                result.finalPlayerList.push(name);
+              }
+            });
+          } else if (signup.status === 'OUT') {
+            // Remove players from the list
+            signup.names.forEach((name: string) => {
+              const index = result.finalPlayerList.indexOf(name);
+              if (index !== -1) {
+                result.finalPlayerList.splice(index, 1);
+              }
+            });
+          }
         }
       }
     }
@@ -357,7 +363,7 @@ if (require.main === module) {
     console.log(`Forcing registration timestamp to: ${new Date(forceTimestamp * 1000).toLocaleString()}`);
   }
   
-  processSignups(groupId, outputPath, forceTimestamp).catch(err => {
+  processSignups(groupId, outputPath, forceTimestamp ?? undefined).catch(err => {
     console.error('Error processing signups:', err);
     process.exit(1);
   });
