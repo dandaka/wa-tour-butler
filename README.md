@@ -71,6 +71,7 @@ pnpm run dev
 - `pnpm run view-messages` - Display messages from the target group in chronological order
   - Optional parameters: `--newest-first`, `--limit=10`
 - `pnpm run fetch-groups` - List all available WhatsApp groups
+- `pnpm run fetch-group-ids` - Output all WhatsApp groups in CSV format (ID,Name) for easy update of groups.csv
 
 ## Planned Features
 
