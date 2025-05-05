@@ -1,8 +1,30 @@
 import Database from 'better-sqlite3';
 import { format } from 'util';
 
+// Define types for database responses
+interface ChatInfo {
+  chat_id: string;
+  message_count: number;
+  last_message_time: number;
+  last_message: string | null;
+}
+
+interface MessageInfo {
+  id: string;
+  chat_id: string;
+  sender: string;
+  timestamp: number;
+  message_type: string;
+  content: string;
+  is_from_me: number;
+}
+
+interface ChatStats {
+  total_messages: number;
+}
+
 // Database connection
-const db = new Database('./whatsapp_messages.db');
+const db = new Database('./data/whatsapp_messages.db');
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -72,7 +94,7 @@ function showChats() {
         chat_id
       ORDER BY 
         last_message_time DESC
-    `).all();
+    `).all() as ChatInfo[];
     
     if (chats.length === 0) {
       console.log('No chats found in the database.');
@@ -132,7 +154,7 @@ function showMessages(chatId: string, limit: number, messageFilter: string | nul
     params.push(limit);
     
     // Execute the query
-    const messages = db.prepare(query).all(...params);
+    const messages = db.prepare(query).all(...params) as MessageInfo[];
     
     if (messages.length === 0) {
       console.log(`No messages found for chat ${chatId}${messageFilter ? ` containing "${messageFilter}"` : ''}.`);
@@ -147,7 +169,7 @@ function showMessages(chatId: string, limit: number, messageFilter: string | nul
         messages 
       WHERE 
         chat_id = ?
-    `).get(chatId);
+    `).get(chatId) as ChatStats;
     
     console.log(`\nMessages for chat: ${chatId}`);
     console.log(`Total messages in DB: ${chatInfo.total_messages}`);

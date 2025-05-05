@@ -13,7 +13,7 @@ import Database from 'better-sqlite3';
 const logger = P({ level: 'silent' }); // Change to 'info' for more debug info
 
 // Database setup
-const db = new Database('./whatsapp_messages.db');
+const db = new Database('./data/whatsapp_messages.db');
 
 // Create messages table if it doesn't exist
 db.exec(`
