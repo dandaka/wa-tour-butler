@@ -1,5 +1,11 @@
 session
 
+# WhatsApp message data files (contains private messages)
+group_messages.db
+group_messages.json
+group_messages*.db
+group_messages*.json
+
 # Logs
 logs
 *.log
