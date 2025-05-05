@@ -30,11 +30,37 @@ db.exec(`
   )
 `);
 
+// Create contacts table for storing contact and group information
+db.exec(`
+  CREATE TABLE IF NOT EXISTS contacts (
+    jid TEXT PRIMARY KEY,
+    name TEXT,
+    notify TEXT,
+    short_name TEXT,
+    push_name TEXT,
+    is_group BOOLEAN,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 // Create a prepared statement for inserting messages
 const insertMessage = db.prepare(`
   INSERT OR IGNORE INTO messages (
     id, chat_id, sender, timestamp, message_type, content, is_from_me, raw_data
   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+// Create a prepared statement for inserting or updating contacts
+const upsertContact = db.prepare(`
+  INSERT INTO contacts (jid, name, notify, short_name, push_name, is_group, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  ON CONFLICT(jid) DO UPDATE SET
+    name = COALESCE(excluded.name, name),
+    notify = COALESCE(excluded.notify, notify),
+    short_name = COALESCE(excluded.short_name, short_name),
+    push_name = COALESCE(excluded.push_name, push_name),
+    is_group = COALESCE(excluded.is_group, is_group),
+    updated_at = CURRENT_TIMESTAMP
 `);
 
 async function startMessageStorage() {
@@ -101,6 +127,20 @@ async function startMessageStorage() {
         console.log('Connected to WhatsApp! Ready to receive messages.');
       }
     }
+    
+    // Process contact updates (including groups)
+    if(events['contacts.update']) {
+      const updates = events['contacts.update'];
+      console.log(`Received ${updates.length} contact updates`);
+      storeContacts(updates);
+    }
+    
+    // Handle group metadata updates
+    if(events['groups.update']) {
+      const updates = events['groups.update'];
+      console.log(`Received ${updates.length} group metadata updates`);
+      storeGroupUpdates(updates);
+    }
 
     // When history is received
     if(events['messaging-history.set']) {
@@ -139,6 +179,18 @@ async function startMessageStorage() {
             const sender = msg.key.participant || msg.key.remoteJid || '';
             const timestamp = msg.messageTimestamp ? Number(msg.messageTimestamp) : 0;
             const isFromMe = msg.key.fromMe || false;
+            
+            // Also store contact info for the chat and sender if available
+            if (chatId) {
+              upsertContact.run(
+                chatId,
+                null,  // name (will be updated by contacts.update)
+                null,  // notify
+                null,  // short_name
+                null,  // push_name
+                chatId.endsWith('@g.us') ? 1 : 0, // is_group
+              );
+            }
             
             // Extract message content
             let content = '';
@@ -203,6 +255,74 @@ async function startMessageStorage() {
       
     } catch (err) {
       console.error('Error in batch message storage:', err);
+    }
+  }
+  
+  // Function to store contact information
+  function storeContacts(contacts: any[]) {
+    if (!contacts || contacts.length === 0) return;
+    
+    try {
+      // Begin a transaction
+      const transaction = db.transaction(() => {
+        for (const contact of contacts) {
+          try {
+            if (!contact.id) continue;
+            
+            upsertContact.run(
+              contact.id,
+              contact.name,
+              contact.notify,
+              contact.short,
+              contact.pushName,
+              contact.id.endsWith('@g.us') ? 1 : 0
+            );
+            
+            console.log(`Stored contact: ${contact.id} (${contact.name || contact.notify || contact.pushName || 'No name'})`);
+          } catch (err) {
+            console.error('Error storing individual contact:', err);
+          }
+        }
+      });
+      
+      // Execute the transaction
+      transaction();
+    } catch (err) {
+      console.error('Error in contacts transaction:', err);
+    }
+  }
+  
+  // Function to store group metadata
+  function storeGroupUpdates(groups: any[]) {
+    if (!groups || groups.length === 0) return;
+    
+    try {
+      // Begin a transaction
+      const transaction = db.transaction(() => {
+        for (const group of groups) {
+          try {
+            if (!group.id) continue;
+            
+            upsertContact.run(
+              group.id,
+              group.subject,
+              group.subject,
+              null,
+              null,
+              1 // is_group
+            );
+            
+            console.log(`Updated group: ${group.id} (${group.subject || 'No name'})`);
+          } catch (err) {
+            console.error('Error storing group metadata:', err);
+          }
+        }
+      });
+      
+      // Execute the transaction
+      transaction();
+    } catch (err) {
+      console.error('Error in group metadata transaction:', err);
     }
   }
 }
