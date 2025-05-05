@@ -11,6 +11,7 @@
     "test": "jest",
     "parse": "ts-node src/scripts/process-signups.ts 120363028202164779@g.us ./signup-results.md 1746467935",
     "parse-signups": "ts-node src/scripts/process-signups.ts 120363028202164779@g.us ./signup-results.md 1746467935",
+    "parse-all": "ts-node src/scripts/process-all-groups.ts",
     "fetch-groups": "ts-node src/scripts/fetchGroupChats.ts",
     "whatsapp-login": "ts-node src/scripts/whatsappLogin.ts",
     "sync": "ts-node src/scripts/syncGroupMessages.ts",
