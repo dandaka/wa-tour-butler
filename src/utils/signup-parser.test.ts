@@ -322,6 +322,42 @@ describe('Signup Parser', () => {
       expect(result?.names[0]).toBe('Julien'); // Ensure 'Julien' isn't truncated to 'Juli'
       expect(result?.names[1]).toBe('Mark');   // Ensure the name is properly separated
     });
+    
+    /**
+     * Test for handling multi-word names (names with spaces)
+     */
+    it('should treat multi-word names as a single name', () => {
+      // Test for issue where "philipp effinger" is being split into "philipp, ffing"
+      const message = createMessage('philipp effinger');
+      const rawResult = parseSignupMessage(message);
+      const result = getSingleResult(rawResult);
+      
+      expect(result).not.toBeNull();
+      expect(result?.names).toHaveLength(1);
+      
+      // The full name should be preserved as a single entity
+      expect(result?.names[0]).toBe('philipp effinger');
+      expect(result?.status).toBe('IN');
+    });
+    
+    /**
+     * Test for handling slash notation without spaces
+     */
+    it('should correctly split names with slashes without spaces', () => {
+      // Test for issue where "Mike/Ben 15h" is not properly split
+      const message = createMessage('Mike/Ben 15h');
+      const rawResult = parseSignupMessage(message);
+      const result = getSingleResult(rawResult);
+      
+      expect(result).not.toBeNull();
+      expect(result?.names).toHaveLength(2);
+      
+      // Names should be correctly split despite the lack of spaces around the slash
+      expect(result?.names[0]).toBe('Mike');
+      expect(result?.names[1]).toBe('Ben');
+      expect(result?.time).toBe('15:00');
+      expect(result?.status).toBe('IN');
+    });
 
     /**
      * Test for handling multiple time slots

@@ -77,9 +77,13 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
     };
   }
   
-  // Special case for handling slash notation like "Julien / Mark - 15h"
+  // Special case for handling slash notation like "Julien / Mark - 15h" or "Mike/Ben 15h"
+  // Version with spaces around slash
   const slashTimePattern = /^([A-Za-z\u00C0-\u017F\s'\-\.]+)\s*\/\s*([A-Za-z\u00C0-\u017F\s'\-\.]+)(?:\s*-\s*(\d{1,2}(?:[h:.]\d{0,2})?)|$)/i;
-  const slashTimeMatch = content.match(slashTimePattern);
+  // Version without spaces around slash
+  const noSpaceSlashPattern = /^([A-Za-z\u00C0-\u017F'\-\.]+)\/([A-Za-z\u00C0-\u017F'\-\.]+)(?:\s+(?:-\s*)?(\d{1,2}(?:[h:.]\d{0,2})?)|$)/i;
+  // Try both patterns
+  const slashTimeMatch = content.match(slashTimePattern) || content.match(noSpaceSlashPattern);
   if (slashTimeMatch && slashTimeMatch[1] && slashTimeMatch[2]) {
     // Don't clean the names to preserve the exact name structure
     const name1 = slashTimeMatch[1].trim();
@@ -433,6 +437,14 @@ function parseGeneralMessage(content: string): string[] {
     // Don't extract any names for plain "in 15h" messages
     // We'll handle this at the caller level
     return [];
+  }
+  
+  // Special case for just a name (no time, no separators, no commands)
+  // This addresses the "philipp effinger" case being incorrectly split
+  if (!content.match(/\b(?:and|e|&|\+|\/|in|out|at)\b/i) && // No team separators or commands
+      !content.match(/\d+[h:.]\d*/) && // No time format
+      content.trim().length > 0) { // Not empty
+    return [content.trim()]; // Return the whole message as a single name
   }
   
   // Handle special cases first
