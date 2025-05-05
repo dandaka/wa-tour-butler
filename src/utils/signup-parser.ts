@@ -78,9 +78,10 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   }
   
   // Special case for handling slash notation like "Julien / Mark - 15h"
-  const slashTimePattern = /^([A-Za-z\u00C0-\u017F\s]+)\s*\/\s*([A-Za-z\u00C0-\u017F\s]+)(?:\s*-\s*(\d{1,2}(?:[h:.]\d{0,2})?)|$)/i;
+  const slashTimePattern = /^([A-Za-z\u00C0-\u017F\s'\-\.]+)\s*\/\s*([A-Za-z\u00C0-\u017F\s'\-\.]+)(?:\s*-\s*(\d{1,2}(?:[h:.]\d{0,2})?)|$)/i;
   const slashTimeMatch = content.match(slashTimePattern);
   if (slashTimeMatch && slashTimeMatch[1] && slashTimeMatch[2]) {
+    // Don't clean the names to preserve the exact name structure
     const name1 = slashTimeMatch[1].trim();
     const name2 = slashTimeMatch[2].trim();
     
@@ -497,7 +498,8 @@ function cleanName(name: string): string {
     .replace(/\s+at\b/i, '') // Remove 'at' as it's usually related to time
     .replace(/[\d:]+h?/, '') // Remove time patterns
     .replace(/\s*-\s*/, '') // Remove dashes
-    .replace(/\s*\/\s*/, '') // Remove slashes
+    // Don't remove slashes from names, as they can be important in team names
+    // .replace(/\s*\/\s*/, '') // This line was causing name truncation
     .replace(/[\d\.]+/, '') // Remove numbers
     .trim();
 }

@@ -279,6 +279,49 @@ describe('Signup Parser', () => {
         expect(results[1].names).toEqual(['Julien', 'Ben']);
       }
     });
+    
+    /**
+     * Test for the specific example from signup-results.md
+     */
+    it('should correctly parse multi-line slash notation with different times', () => {
+      const message = createMessage('Julien / Mark - 15h\nJulien / Mike - 17h');
+      message.sender = '351910686564@s.whatsapp.net';
+      
+      const results = parseSignupMessage(message);
+      
+      // Should return an array with two results
+      expect(Array.isArray(results)).toBe(true);
+      if (Array.isArray(results)) {
+        expect(results.length).toBe(2);
+        
+        // Check first team - Julien & Mark at 15h
+        expect(results[0].names).toEqual(['Julien', 'Mark']);
+        expect(results[0].time).toBe('15:00');
+        expect(results[0].status).toBe('IN');
+        
+        // Check second team - Julien & Mike at 17h
+        expect(results[1].names).toEqual(['Julien', 'Mike']);
+        expect(results[1].time).toBe('17:00');
+        expect(results[1].status).toBe('IN');
+      }
+    });
+    
+    /**
+     * Test for name preservation - ensuring name parts aren't truncated
+     */
+    it('should preserve complete names when handling slash notation', () => {
+      // This test focuses on the issue where 'Julien' was being truncated to 'Juli'
+      const message = createMessage('Julien / Mark - 15h');
+      const rawResult = parseSignupMessage(message);
+      const result = getSingleResult(rawResult);
+      
+      expect(result).not.toBeNull();
+      expect(result?.names).toHaveLength(2);
+      
+      // Check that full names are preserved
+      expect(result?.names[0]).toBe('Julien'); // Ensure 'Julien' isn't truncated to 'Juli'
+      expect(result?.names[1]).toBe('Mark');   // Ensure the name is properly separated
+    });
 
     /**
      * Test for handling multiple time slots
