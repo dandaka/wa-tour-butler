@@ -301,11 +301,21 @@ function isOutMessage(content: string): boolean {
  * Extract time pattern from message
  */
 function extractTimePattern(content: string): RegExpMatchArray | null {
-  // Try multiple patterns to cover different formats
+  // For multi-time patterns like "15 and 17", capture the first time only
+  const multiTimePattern = /\b(\d{1,2})\s+(?:and|e)\s+(\d{1,2})\b/i;
+  if (multiTimePattern.test(content)) {
+    const match = content.match(multiTimePattern);
+    if (match) {
+      // Use a separate variable to track multi-time patterns
+      (match as any).isMultiTime = true;
+      return match;
+    }
+  }
+
+  // Try other patterns for single times
   const patterns = [
-    /\b(\d{1,2})[h:](\d{2})?\b|\b(\d{1,2})h\b/i,  // Common formats: 15h, 15:00
+    /\b(\d{1,2})(?::h?|h:?)(\d{2})?h?\b|\b(\d{1,2})h\b/i,  // Common formats: 15h, 15:00, 15:30h
     /\b(\d{1,2})\.(\d{2})\b/i,                      // Format: 15.00
-    /\b(\d{1,2})\s+(?:and|e)\s+(\d{1,2})\b/i,       // Format: 15 and 17
     /\b(\d{1,2})\b(?!\s*(?:and|e))/i                // Just a number not followed by 'and' or 'e'
   ];
   
@@ -323,6 +333,11 @@ function extractTimePattern(content: string): RegExpMatchArray | null {
  * Format extracted time matches into a consistent format
  */
 export function formatTimeMatch(timeMatch: RegExpMatchArray): string {
+  // Handle multi-time pattern (e.g., "15 and 17")
+  if ((timeMatch as any).isMultiTime) {
+    return `${timeMatch[1]}:00`; // Just take the first time
+  }
+
   // Format depends on the regex that matched
   if (timeMatch[0].includes('.')) {
     // Format like "15.00"
@@ -331,12 +346,10 @@ export function formatTimeMatch(timeMatch: RegExpMatchArray): string {
     // Format like "15h"
     return `${timeMatch[3]}:00`;
   } else if (timeMatch[1] && timeMatch[2]) {
-    // Format like "15:00" or "15 and 17"
-    if (timeMatch[0].match(/\b(?:and|e)\b/i)) {
-      // For "15 and 17" pattern, just return the first time
-      return `${timeMatch[1]}:00`;
-    }
-    return `${timeMatch[1]}:${timeMatch[2].padEnd(2, '0')}`;
+    // Format like "15:00", "15:30h", "15h30"
+    const hour = timeMatch[1];
+    const minutes = timeMatch[2].padEnd(2, '0');
+    return `${hour}:${minutes}`;
   } else if (timeMatch[1]) {
     // Format like "15"
     return `${timeMatch[1]}:00`;

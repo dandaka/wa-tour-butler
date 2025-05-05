@@ -12,7 +12,7 @@ describe('Signup Parser', () => {
    */
   describe('formatTimeMatch', () => {
     it('should format "15h" correctly', () => {
-      const timeMatch = '15h'.match(/\b(\d{1,2})[h:](\d{2})?\b|\b(\d{1,2})h\b/i);
+      const timeMatch = '15h'.match(/\b(\d{1,2})(?::h?|h:?)(\d{2})?h?\b|\b(\d{1,2})h\b/i);
       if (timeMatch) {
         expect(formatTimeMatch(timeMatch)).toBe('15:00');
       } else {
@@ -21,11 +21,20 @@ describe('Signup Parser', () => {
     });
 
     it('should format "15:30" correctly', () => {
-      const timeMatch = '15:30'.match(/\b(\d{1,2})[h:](\d{2})?\b|\b(\d{1,2})h\b/i);
+      const timeMatch = '15:30'.match(/\b(\d{1,2})(?::h?|h:?)(\d{2})?h?\b|\b(\d{1,2})h\b/i);
       if (timeMatch) {
         expect(formatTimeMatch(timeMatch)).toBe('15:30');
       } else {
         fail('Expected timeMatch regex to match "15:30"');
+      }
+    });
+
+    it('should format "13:30h" correctly', () => {
+      const timeMatch = '13:30h'.match(/\b(\d{1,2})(?::h?|h:?)(\d{2})?h?\b|\b(\d{1,2})h\b/i);
+      if (timeMatch) {
+        expect(formatTimeMatch(timeMatch)).toBe('13:30');
+      } else {
+        fail('Expected timeMatch regex to match "13:30h"');
       }
     });
     
@@ -506,6 +515,10 @@ describe('Signup Parser', () => {
         
         // Verify time if provided in the example
         if (example.time) {
+          if (result?.time !== example.time) {
+            console.log(`Time mismatch for message: "${example.message}"`); 
+            console.log(`Expected: ${example.time}, Got: ${result?.time}`);
+          }
           expect(result?.time).toBe(example.time);
         }
         
