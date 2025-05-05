@@ -54,9 +54,9 @@ describe('Signup Parser', () => {
    */
   describe('parseSignupMessage', () => {
     // Helper function to create a test message
-    function createMessage(content: string): WhatsAppMessage {
+    function createMessage(content: string, sender: string = '351987654321@s.whatsapp.net'): WhatsAppMessage {
       return {
-        sender: 'test-sender@s.whatsapp.net',
+        sender,
         timestamp: Date.now(),
         content
       };
@@ -72,10 +72,44 @@ describe('Signup Parser', () => {
     /**
      * System and special messages
      */
-    it('should ignore system messages', () => {
-      expect(parseSignupMessage(createMessage('[PROTOCOLMESSAGE]'))).toBeNull();
-      expect(parseSignupMessage(createMessage('[MESSAGECONTEXTINFO]'))).toBeNull();
-      expect(parseSignupMessage(createMessage('[SENDERKEYDISTRIBUTIONMESSAGE]'))).toBeNull();
+    it('should ignore system messages and bracketed messages', () => {
+      const systemMessages = [
+        '[PROTOCOLMESSAGE]',
+        '[MESSAGECONTEXTINFO]',
+        '[SENDERKEYDISTRIBUTIONMESSAGE]',
+        '[REACTIONMESSAGE]',
+        '[Any text in brackets]',
+        '123', // Just a number
+        'a' // Too short
+      ];
+
+      systemMessages.forEach(msg => {
+        const result = parseSignupMessage(createMessage(msg));
+        expect(result).toBeNull();
+      });
+    });
+
+    it('should handle time-only messages by using sender phone number', () => {
+      const timeOnlyMessages = [
+        { message: '13h30', time: '13:30' },
+        { message: '15:00', time: '15:00' },
+        { message: '17.00', time: '17:00' },
+        { message: '@4915563136827 13h30', time: '13:30', expectedName: '4915563136827' },
+      ];
+
+      timeOnlyMessages.forEach(({ message, time }) => {
+        const result = getSingleResult(parseSignupMessage(createMessage(message)));
+        expect(result).not.toBeNull();
+        expect(result?.time).toBe(time);
+        expect(result?.names).toHaveLength(1);
+        if (message.startsWith('@')) {
+          const phoneMatch = message.match(/@(\d+)/);
+          expect(phoneMatch).not.toBeNull();
+          expect(result?.names[0]).toBe(phoneMatch![1]); // Phone number from message
+        } else {
+          expect(result?.names[0]).toBe('987654321'); // Last 9 digits of the default phone number
+        }
+      });
     });
 
     it('should ignore registration messages', () => {

@@ -65,9 +65,24 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   const timeMatch = extractTimePattern(content);
   const time = timeMatch ? formatTimeMatch(timeMatch) : undefined;
   
-  // Special case for just "In [time]" with no name
+  // Special case for messages that only contain a time or @phone_number with time
+  const timeOnlyPattern = /^\s*\d+\s*(?:h|:|\.)\s*\d*\s*$/i;
   const inTimePattern = /^\s*in\s+\d+\s*(?:h|:|\.)\s*/i;
-  if (inTimePattern.test(content) && time) {
+  const phonePattern = /^\s*@(\d+)\s+\d+\s*(?:h|:|\.)\s*\d*\s*$/i;
+  
+  const phoneMatch = content.match(phonePattern);
+  if (phoneMatch) {
+    // Use the phone number from the message
+    return {
+      originalMessage: content,
+      names: [phoneMatch[1]], // Use the captured phone number
+      time,
+      status: 'IN',
+      timestamp: message.timestamp,
+      sender: message.sender,
+      isTeam: false
+    };
+  } else if ((timeOnlyPattern.test(content) || inTimePattern.test(content)) && time) {
     const senderName = extractNameFromPhoneNumber(message.sender);
     return {
       originalMessage: content,
@@ -269,9 +284,7 @@ export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | Par
  */
 function isSystemMessage(content: string): boolean {
   return (
-    content.includes('[PROTOCOLMESSAGE]') || 
-    content.includes('[MESSAGECONTEXTINFO]') ||
-    content.includes('[SENDERKEYDISTRIBUTIONMESSAGE]') ||
+    content.match(/\[.*\]/) !== null || // Any text in square brackets
     content.match(/^(\d+)$/) !== null || // Just a number
     content.length < 3 // Too short to be meaningful
   );
