@@ -34,9 +34,8 @@ export interface ParsedSignup {
 function extractNameFromPhoneNumber(phoneNumber: string): string {
   // Remove the @s.whatsapp.net suffix if present
   const cleanPhone = phoneNumber.replace('@s.whatsapp.net', '');
-  // Format it with last 9 digits
-  const lastNine = cleanPhone.substring(Math.max(0, cleanPhone.length - 9));
-  return lastNine;
+  // Return the full phone number (including country code) to maintain proper identification
+  return cleanPhone;
 }
 
 /**
@@ -133,6 +132,40 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   const timeOnlyPattern = /^\s*\d+\s*(?:h|:|\.)\s*\d*\s*$/i;
   const inTimePattern = /^\s*in\s+\d+\s*(?:h|:|\.)\s*/i;
   const phonePattern = /^\s*@(\d+)\s+\d+\s*(?:h|:|\.)\s*\d*\s*$/i;
+  const inComPhonePattern = /^\s*in\s+com\s+@(\d+)\s*$/i;
+  const inComNamePattern = /^\s*in\s+com\s+([A-Za-z\u00C0-\u017F\s'\-\.]+)\s*$/i;
+  
+  // Special case for "In com @number" format
+  const inComPhoneMatch = content.match(inComPhonePattern);
+  if (inComPhoneMatch) {
+    // Use both the sender's phone number and the partner phone number
+    const senderName = extractNameFromPhoneNumber(message.sender);
+    return {
+      originalMessage: content,
+      names: [senderName, inComPhoneMatch[1]], // Sender + partner phone
+      time,
+      status: 'IN',
+      timestamp: message.timestamp,
+      sender: message.sender,
+      isTeam: true // This is a team (two players)
+    };
+  }
+  
+  // Special case for "In com [Name]" format
+  const inComNameMatch = content.match(inComNamePattern);
+  if (inComNameMatch) {
+    // Use both the sender's phone number and the partner name
+    const senderName = extractNameFromPhoneNumber(message.sender);
+    return {
+      originalMessage: content,
+      names: [senderName, inComNameMatch[1].trim()], // Sender + partner name
+      time,
+      status: 'IN',
+      timestamp: message.timestamp,
+      sender: message.sender,
+      isTeam: true // This is a team (two players)
+    };
+  }
   
   const phoneMatch = content.match(phonePattern);
   if (phoneMatch) {
@@ -532,8 +565,8 @@ function parseTeamMessage(content: string): string[] | null {
     }
   }
   
-  // Pattern for team messages: "Name1 and Name2", "Name1 & Name2", etc.
-  const teamPattern = /^([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+[&\/]\s+|\s+e\s+|\s+and\s+|\s+\+)([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+.*)?$/i;
+  // Pattern for team messages: "Name1 and Name2", "Name1 & Name2", "Name1 com Name2", etc.
+  const teamPattern = /^([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+[&\/]\s+|\s+e\s+|\s+and\s+|\s+com\s+|\s+\+)([A-Za-z\u00C0-\u017F\s'\-\.@\d]+)(\s+.*)?$/i;
   const teamMatch = content.match(teamPattern);
   
   if (teamMatch) {
@@ -544,6 +577,9 @@ function parseTeamMessage(content: string): string[] | null {
     name1 = name1.replace(/\s+in\b/i, '');
     name2 = name2.replace(/\s+in\b/i, '');
     name2 = name2.replace(/\s+at\b/i, ''); // Remove 'at' from second name
+    
+    // Remove time information from the second name if present
+    name2 = name2.replace(/\s+\d+[h:.\s]\d*\s*$/i, ''); // Remove time pattern at end
     
     // Special case for "Name+partner" or "Name & partner"
     if (name2.toLowerCase() === 'partner') {

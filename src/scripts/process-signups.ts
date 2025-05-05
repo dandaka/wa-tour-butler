@@ -143,7 +143,10 @@ function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistr
   
   // Check for any messages that look like registration openings more flexibly
   const potentialRegistrationMessages = messages
-    .filter(m => m.sender === groupInfo.admin)
+    .filter(m => {
+      // Handle WhatsApp formatting of phone numbers with @s.whatsapp.net suffix
+      return m.sender === groupInfo.admin || m.sender === `${groupInfo.admin}@s.whatsapp.net`;
+    })
     .filter(m => {
       const lowerContent = m.content.toLowerCase();
       // Match if any registration keyword appears
@@ -172,7 +175,8 @@ function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistr
     const message = messages[i];
     
     // Be more flexible for registration detection
-    const isFromAdmin = message.sender === groupInfo.admin;
+    const isFromAdmin = message.sender === groupInfo.admin || 
+                     message.sender === `${groupInfo.admin}@s.whatsapp.net`;
     const lowerContent = message.content.toLowerCase();
     
     // Match any registration keyword
@@ -213,9 +217,25 @@ function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistr
   
   // If registration message found, now process all messages after that timestamp
   if (registrationStarted) {
+    console.log('Registration started!'); // Explicit logging to confirm this block is executed
+    console.log(`Registration timestamp: ${registrationTimestamp} (${new Date(registrationTimestamp * 1000).toLocaleString()})`);
+    
+    // Debug: Count messages after registration timestamp
+    const messagesAfterRegistration = messages.filter(m => m.timestamp >= registrationTimestamp);
+    console.log(`Found ${messagesAfterRegistration.length} messages after registration opened at ${new Date(registrationTimestamp * 1000).toLocaleString()}`);
+    
+    // Count non-admin messages after registration
+    const userMessagesAfterRegistration = messagesAfterRegistration.filter(m => 
+      m.sender !== groupInfo.admin && 
+      m.sender !== `${groupInfo.admin}@s.whatsapp.net`);
+    console.log(`Found ${userMessagesAfterRegistration.length} user messages (non-admin) after registration`);
+    
     for (const message of messages) {
-      // Skip messages before registration opened or from the admin
-      if (message.timestamp < registrationTimestamp || message.sender === groupInfo.admin) {
+      // Skip messages before registration opened or from the admin (handle both phone formats)
+      const isAdmin = message.sender === groupInfo.admin || 
+                    message.sender === `${groupInfo.admin}@s.whatsapp.net`;
+      
+      if (message.timestamp < registrationTimestamp || isAdmin) {
         continue;
       }
       
@@ -225,10 +245,15 @@ function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistr
       }
       
       // Parse message for signup information using our modular parser
+      if (message.timestamp > registrationTimestamp && message.timestamp < registrationTimestamp + 600) { // 10 minutes
+        console.log(`Processing potential signup [${new Date(message.timestamp * 1000).toLocaleString()}]: ${message.content.substring(0, 60)}${message.content.length > 60 ? '...' : ''}`);
+      }
+      
       const parsedResult = parseSignupMessage(message);
       if (parsedResult) {
         // Handle both single result and array of results
         const signups = Array.isArray(parsedResult) ? parsedResult : [parsedResult];
+        console.log(`✅ Successfully parsed signup from: ${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}`);
         
         // Process each signup
         for (const signup of signups) {

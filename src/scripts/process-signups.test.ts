@@ -115,6 +115,14 @@ describe('Registration Opening Detection', () => {
       });
     });
     
+    it('should detect format with às XXh (specific real-world admin message)', () => {
+      const ALTERNATIVE_ADMIN = '351916949231@s.whatsapp.net';
+      const message = createMessage('❗️Inscrições abertas para o PADEL4ALL M3 Sexta-feira às 19h no SALDANHA 🎾🎾', ALTERNATIVE_ADMIN);
+      
+      // Test with the alternative admin ID
+      expect(isRegistrationOpenMessage(message, ALTERNATIVE_ADMIN, REGISTRATION_KEYWORDS)).toBe(true);
+    });
+    
     it('should detect admin messages with combined keywords and time patterns', () => {
       const messages = [
         createMessage('Inscrições abertas para amanhã: 15h00 e 17h00', ADMIN_ID),

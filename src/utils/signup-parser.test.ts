@@ -116,7 +116,7 @@ describe('Signup Parser', () => {
           expect(phoneMatch).not.toBeNull();
           expect(result?.names[0]).toBe(phoneMatch![1]); // Phone number from message
         } else {
-          expect(result?.names[0]).toBe('987654321'); // Last 9 digits of the default phone number
+          expect(result?.names[0]).toBe('351987654321'); // Full phone number including country code
         }
       });
     });
@@ -135,8 +135,34 @@ describe('Signup Parser', () => {
       expect(result).not.toBeNull();
       expect(result?.names).toContain('Rudi');
       expect(result?.names).toContain('Dani');
-      expect(result?.time).toBe('15:00');
-      expect(result?.status).toBe('IN');
+      expect(result?.isTeam).toBe(true);
+    });
+  
+    it('should parse team messages with "com" as team delimiter', () => {
+      const rawResult = parseSignupMessage(createMessage('Rudi com Dani 15h'));
+      const result = getSingleResult(rawResult);
+      expect(result).not.toBeNull();
+      expect(result?.names).toContain('Rudi');
+      expect(result?.names).toContain('Dani');
+      expect(result?.isTeam).toBe(true);
+    });
+  
+    it('should handle "In com @number" format using the sender number as first player', () => {
+      const rawResult = parseSignupMessage(createMessage('In com @351969484026', '351963320681@s.whatsapp.net'));
+      const result = getSingleResult(rawResult);
+      expect(result).not.toBeNull();
+      expect(result?.names).toContain('351963320681');
+      expect(result?.names).toContain('351969484026');
+      expect(result?.isTeam).toBe(true);
+    });
+  
+    it('should handle "In com Name" format using the sender number as first player', () => {
+      const rawResult = parseSignupMessage(createMessage('In com Diogo Lourenço', '351963683848@s.whatsapp.net'));
+      const result = getSingleResult(rawResult);
+      expect(result).not.toBeNull();
+      expect(result?.names).toContain('351963683848');
+      expect(result?.names).toContain('Diogo Lourenço');
+      expect(result?.isTeam).toBe(true);
     });
 
     it('should parse team messages with "&"', () => {
@@ -225,7 +251,7 @@ describe('Signup Parser', () => {
         if (expectedName) {
           expect(result?.names[0]).toBe(expectedName);
         } else {
-          expect(result?.names[0]).toBe('987654321'); // Should use sender's phone number
+          expect(result?.names[0]).toBe('351987654321'); // Should use sender's full phone number
         }
       });
     });
@@ -237,7 +263,7 @@ describe('Signup Parser', () => {
       expect(result1?.status).toBe('OUT');
       expect(result1?.time).toBe('15:00');
       expect(result1?.names.length).toBe(1);
-      expect(result1?.names[0]).toBe('987654321\'s partner');
+      expect(result1?.names[0]).toBe('351987654321\'s partner');
 
       // OUT messages for specific person
       const result2 = getSingleResult(parseSignupMessage(createMessage('Pedro partner out 18:30')));
@@ -306,7 +332,7 @@ describe('Signup Parser', () => {
       const rawResult = parseSignupMessage(message);
       const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
-      expect(result?.names).toEqual(['935780509']);
+      expect(result?.names).toEqual(['351935780509']);
       expect(result?.time).toBe('15:00');
       expect(result?.status).toBe('IN');
     });
@@ -347,7 +373,7 @@ describe('Signup Parser', () => {
       const rawResult = parseSignupMessage(message);
       const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
-      expect(result?.names).toEqual(['935780509']);
+      expect(result?.names).toEqual(['351935780509']);
       expect(result?.time).toBe('15:00');
       expect(result?.status).toBe('IN');
     });
