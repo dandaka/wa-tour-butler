@@ -13,6 +13,7 @@
     "parse-signups": "ts-node src/scripts/process-signups.ts 120363028202164779@g.us ./signup-results.md 1746467935",
     "parse-all": "ts-node src/scripts/process-all-groups.ts",
     "fetch-groups": "ts-node src/scripts/fetchGroupChats.ts",
+    "fetch-group-ids": "ts-node src/scripts/fetchGroupIds.ts",
     "whatsapp-login": "ts-node src/scripts/whatsappLogin.ts",
     "sync": "ts-node src/scripts/syncGroupMessages.ts",
     "fetch-history": "ts-node src/scripts/fetch-history-poc-fixed.ts",
