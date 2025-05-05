@@ -24,6 +24,8 @@ export interface ParsedSignup {
   status: 'IN' | 'OUT';
   timestamp: number;
   sender: string;
+  teamNumber?: number; // Team number for teams (1, 2, 3, etc.)
+  isTeam: boolean; // Flag to indicate if this signup represents a team
 }
 
 /**
@@ -73,7 +75,8 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
       time,
       status: 'IN',
       timestamp: message.timestamp,
-      sender: message.sender
+      sender: message.sender,
+      isTeam: false // Single player is not a team
     };
   }
   
@@ -100,7 +103,8 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
         time,
         status: isOut ? 'OUT' : 'IN',
         timestamp: message.timestamp,
-        sender: message.sender
+        sender: message.sender,
+        isTeam: true // Two players with slash notation is a team
       };
     }
   }
@@ -119,7 +123,8 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
       time,
       status: isOut ? 'OUT' : 'IN',
       timestamp: message.timestamp,
-      sender: message.sender
+      sender: message.sender,
+      isTeam: processedNames.length > 1 // It's a team if there's more than one name
     };
   }
   
@@ -138,7 +143,8 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
         time,
         status: isOut ? 'OUT' : 'IN',
         timestamp: message.timestamp,
-        sender: message.sender
+        sender: message.sender,
+        isTeam: true // Player with partner is a team
       };
     }
     
@@ -153,7 +159,8 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
         time,
         status: isOut ? 'OUT' : 'IN',
         timestamp: message.timestamp,
-        sender: message.sender
+        sender: message.sender,
+        isTeam: true // Player with partner is a team
       };
     }
     
@@ -163,7 +170,8 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
       time,
       status: isOut ? 'OUT' : 'IN',
       timestamp: message.timestamp,
-      sender: message.sender
+      sender: message.sender,
+      isTeam: false // Single player is not a team
     };
   }
   
@@ -182,7 +190,8 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
         time,
         status: 'IN',
         timestamp: message.timestamp,
-        sender: message.sender
+        sender: message.sender,
+        isTeam: false // Single player is not a team
       };
     }
     return null;
@@ -202,7 +211,8 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
     time,
     status: isOut ? 'OUT' : 'IN',
     timestamp: message.timestamp,
-    sender: message.sender
+    sender: message.sender,
+    isTeam: processedNames.length > 1 // It's a team if there's more than one name
   };
 }
 

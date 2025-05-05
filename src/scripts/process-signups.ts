@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import csv from 'csv-parser';
 import { parseSignupMessage, WhatsAppMessage, ParsedSignup } from '../utils/signup-parser';
+import { processSignupsWithTeams, SignupWithTeam } from '../utils/team-numbering';
 
 type DatabaseType = ReturnType<typeof BetterSqlite3>;
 
@@ -25,6 +26,7 @@ interface Message extends WhatsAppMessage {
 interface ProcessingResult {
   registrationOpenMessage?: Message;
   signups: ParsedSignup[];
+  processedSignups?: SignupWithTeam[]; // Added for team numbering
   finalPlayerList: string[];
 }
 
@@ -254,6 +256,9 @@ function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistr
     }
   }
   
+  // Process team numbering after all signups are collected
+  result.processedSignups = processSignupsWithTeams(result.signups);
+  
   return result;
 }
 
@@ -274,9 +279,19 @@ function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): string {
   const timeSlots: Record<string, string[]> = {};
   const unspecifiedTimeSlot: string[] = [];
   
-  result.signups.forEach(signup => {
+  // Use processed signups with team numbers if available, otherwise fall back to original signups
+  const signupsToUse = result.processedSignups || result.signups;
+  
+  signupsToUse.forEach(signup => {
+    if (signup.status !== 'IN') return; // Skip OUT signups
+    
     if (!signup.time) {
-      signup.names.forEach(name => {
+      // Use formatted names with team numbers if available
+      const namesToAdd: string[] = 'formattedNames' in signup ? 
+        (signup as SignupWithTeam).formattedNames : 
+        signup.names;
+        
+      namesToAdd.forEach((name: string) => {
         if (!unspecifiedTimeSlot.includes(name)) {
           unspecifiedTimeSlot.push(name);
         }
@@ -287,7 +302,12 @@ function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): string {
         timeSlots[timeKey] = [];
       }
       
-      signup.names.forEach(name => {
+      // Use formatted names with team numbers if available
+      const namesToAdd: string[] = 'formattedNames' in signup ? 
+        (signup as SignupWithTeam).formattedNames : 
+        signup.names;
+        
+      namesToAdd.forEach((name: string) => {
         if (!timeSlots[timeKey].includes(name)) {
           timeSlots[timeKey].push(name);
         }
@@ -299,17 +319,63 @@ function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): string {
   
   Object.keys(timeSlots).sort().forEach(time => {
     output += `### ${time} Time Slot (${timeSlots[time].length} players)\n\n`;
-    timeSlots[time].forEach((player, index) => {
+    
+    // Sort the player list - this will group team members together by their team numbers
+    const sortedPlayers = timeSlots[time].sort((a, b) => {
+      // Extract team numbers if present
+      const aMatch = a.match(/\((\d+)\)$/); 
+      const bMatch = b.match(/\((\d+)\)$/);
+      
+      // If both have team numbers, sort by team number first
+      if (aMatch && bMatch) {
+        const aTeam = parseInt(aMatch[1]);
+        const bTeam = parseInt(bMatch[1]);
+        if (aTeam !== bTeam) return aTeam - bTeam;
+      }
+      
+      // If only one has a team number, put teams first
+      if (aMatch && !bMatch) return -1;
+      if (!aMatch && bMatch) return 1;
+      
+      // Otherwise sort alphabetically
+      return a.localeCompare(b);
+    });
+    
+    sortedPlayers.forEach((player, index) => {
       output += `${index + 1}. ${player}\n`;
     });
+    
     output += `\n`;
   });
   
   if (unspecifiedTimeSlot.length > 0) {
-    output += `### Time Not Specified (${unspecifiedTimeSlot.length} players)\n\n`;
-    unspecifiedTimeSlot.forEach((player, index) => {
+    output += `### Unspecified Time Slot (${unspecifiedTimeSlot.length} players)\n\n`;
+    
+    // Sort unspecified time slot players the same way
+    const sortedPlayers = unspecifiedTimeSlot.sort((a, b) => {
+      // Extract team numbers if present
+      const aMatch = a.match(/\((\d+)\)$/); 
+      const bMatch = b.match(/\((\d+)\)$/);
+      
+      // If both have team numbers, sort by team number first
+      if (aMatch && bMatch) {
+        const aTeam = parseInt(aMatch[1]);
+        const bTeam = parseInt(bMatch[1]);
+        if (aTeam !== bTeam) return aTeam - bTeam;
+      }
+      
+      // If only one has a team number, put teams first
+      if (aMatch && !bMatch) return -1;
+      if (!aMatch && bMatch) return 1;
+      
+      // Otherwise sort alphabetically
+      return a.localeCompare(b);
+    });
+    
+    sortedPlayers.forEach((player, index) => {
       output += `${index + 1}. ${player}\n`;
     });
+    
     output += `\n`;
   }
   

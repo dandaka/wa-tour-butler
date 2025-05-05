@@ -13,55 +13,56 @@
 
 ### 15:00 Time Slot (29 players)
 
-1. Rudi
-2. Dani
-3. Giu
-4. Giu's partner
-5. Patrik
-6. 935780509
-7. Philipp
-8. Diego
-9. Vlad Ra
-10. Abilio Duarte
-11. Tom
-12. Louis
-13. Niklas
-14. leo
-15. Dennis
-16. Miguel
-17. Miguel's partner
-18. Julien
-19. Mark
-20. Kevin
-21. Kevin's partner
-22. Rafael
-23. Gui
-24. Martin
-25. Peter
-26. Dan
-27. Mike
-28. Ben
-29. 961040912
+1. Dani (1)
+2. Rudi (1)
+3. Giu (2)
+4. Giu's partner (2)
+5. Diego (3)
+6. Philipp (3)
+7. Abilio Duarte (4)
+8. Vlad Ra (4)
+9. Louis (5)
+10. Tom (5)
+11. leo (6)
+12. Niklas (6)
+13. Miguel (7)
+14. Miguel's partner (7)
+15. Julien (8)
+16. Mark (8)
+17. Kevin (9)
+18. Kevin's partner (9)
+19. Martin (10)
+20. Peter (10)
+21. Ben (11)
+22. Mike (11)
+23. 935780509
+24. 961040912
+25. Dan
+26. Dennis
+27. Gui
+28. Patrik
+29. Rafael
 
 ### 17:00 Time Slot (9 players)
 
-1. Bob
-2. Bob's partner
-3. Julien
-4. Mike
-5. Miguel
-6. Duarte
-7. Rui C
-8. Manel P -
+1. Bob (1)
+2. Bob's partner (1)
+3. Julien (2)
+4. Mike (2)
+5. Duarte (3)
+6. Miguel (3)
+7. Manel P - (4)
+8. Rui C (4)
 9. Ruben
 
-### Time Not Specified (5 players)
+### Unspecified Time Slot (6 players)
 
-1. Julien
-2. Mark
-3. Ben
-4. thanks
+1. Julien (1)
+2. Mark (1)
+3. Ben (2)
+4. Julien (2)
 5. philipp effinger
+6. thanks
 
 ## Signup Processing Log
 
