@@ -60,12 +60,13 @@ function processGroup(group: GroupInfo): Promise<void> {
     // Create write streams for logs
     const logStream = fs.createWriteStream(logFile, { flags: 'w' });
     
-    // Run the process-signups.ts script
+    // Run the process-signups.ts script with verbose output
     const process = spawn('ts-node', [
       'src/scripts/process-signups.ts',
       group.ID,
       outputFile,
-      REGISTRATION_TIMESTAMP.toString()
+      REGISTRATION_TIMESTAMP.toString(),
+      '--verbose'  // Add verbose flag to ensure detailed parsing is shown
     ]);
     
     // Pipe stdout and stderr to log file

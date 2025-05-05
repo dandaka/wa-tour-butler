@@ -394,7 +394,16 @@ function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): string {
       if (signup.time) {
         output += `- Time slot: ${signup.time}\n`;
       }
-      output += `- Status: ${signup.status}\n\n`;
+      output += `- Status: ${signup.status}\n`;
+
+      // Add detailed parsing debug information
+      if ('isTeam' in signup) {
+        output += `- Is team: ${signup.isTeam}\n`;
+      }
+      if ('timestamp' in signup) {
+        output += `- Timestamp: ${new Date(signup.timestamp * 1000).toLocaleString()}\n`;
+      }
+      output += `\n`;
     });
   }
   
@@ -418,6 +427,7 @@ if (require.main === module) {
   const groupId = args[0];
   const outputPath = args[1];
   const forceTimestamp = args[2] ? parseInt(args[2]) : undefined;
+  const verbose = args.includes('--verbose');
   
   if (!groupId) {
     console.error('Please provide a group ID as the first argument');
@@ -427,6 +437,11 @@ if (require.main === module) {
   // If a timestamp is provided, we can use it to force a specific registration time
   if (forceTimestamp) {
     console.log(`Forcing registration timestamp to: ${new Date(forceTimestamp * 1000).toLocaleString()}`);
+  }
+
+  // Set global verbose flag
+  if (verbose) {
+    console.log('Running in verbose mode - detailed parsing will be included');
   }
   
   processSignups(groupId, outputPath, forceTimestamp ?? undefined).catch(err => {
