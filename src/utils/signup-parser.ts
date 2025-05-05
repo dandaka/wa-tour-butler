@@ -38,10 +38,9 @@ function extractNameFromPhoneNumber(phoneNumber: string): string {
 }
 
 /**
- * Parse a WhatsApp message to determine if it's a signup message
- * and extract relevant information
+ * Core parsing function that processes a single message line
  */
-export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | null {
+function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null {
   const content = message.content.trim();
   
   // Skip empty messages
@@ -76,6 +75,26 @@ export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | nul
       timestamp: message.timestamp,
       sender: message.sender
     };
+  }
+  
+  // Special case for handling slash notation like "Julien / Mark - 15h"
+  const slashTimePattern = /^([A-Za-z\u00C0-\u017F\s]+)\s*\/\s*([A-Za-z\u00C0-\u017F\s]+)(?:\s*-\s*(\d{1,2}(?:[h:.]\d{0,2})?)|$)/i;
+  const slashTimeMatch = content.match(slashTimePattern);
+  if (slashTimeMatch && slashTimeMatch[1] && slashTimeMatch[2]) {
+    const name1 = slashTimeMatch[1].trim();
+    const name2 = slashTimeMatch[2].trim();
+    
+    // If we found names with slash pattern
+    if (name1.length > 1 && name2.length > 1) {
+      return {
+        originalMessage: content,
+        names: [name1, name2],
+        time,
+        status: isOut ? 'OUT' : 'IN',
+        timestamp: message.timestamp,
+        sender: message.sender
+      };
+    }
   }
   
   // Try different parsing strategies in order
@@ -177,6 +196,54 @@ export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | nul
     timestamp: message.timestamp,
     sender: message.sender
   };
+}
+
+/**
+ * Parse a WhatsApp message to determine if it's a signup message
+ * and extract relevant information. For multi-line messages,
+ * each line is processed separately and an array of results is returned.
+ */
+export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | ParsedSignup[] | null {
+  const content = message.content.trim();
+  
+  // Skip empty messages
+  if (!content) return null;
+  
+  // Skip protocol and system messages
+  if (isSystemMessage(content)) {
+    return null;
+  }
+
+  // Skip messages that look like they're from the admin with registration info
+  if (content.includes('Inscrições abertas')) {
+    return null;
+  }
+  
+  // Check for newlines - if found, process each line separately
+  if (content.includes('\n')) {
+    const lines = content.split('\n').filter(line => line.trim().length > 0);
+    const results: ParsedSignup[] = [];
+    
+    for (const line of lines) {
+      // Create a new message object for each line
+      const lineMessage: WhatsAppMessage = { 
+        ...message, 
+        content: line.trim() 
+      };
+      
+      // Process the line
+      const lineResult = parseSignupMessageSingle(lineMessage);
+      if (lineResult) {
+        results.push(lineResult);
+      }
+    }
+    
+    // Only return results if we found at least one valid signup
+    return results.length > 0 ? results : null;
+  }
+  
+  // If no newlines, process as a single message
+  return parseSignupMessageSingle(message);
 }
 
 /**
@@ -351,9 +418,15 @@ function parseSinglePlayerMessage(content: string): string | null {
 }
 
 /**
- * Parse a general message by splitting it into parts based on common separators
+ * Processes each part of a divided message to extract potential player names
+ * @returns An array of extracted names
  */
 function parseGeneralMessage(content: string): string[] {
+  // Skip messages that don't look like signups - prevent non-name phrases from being parsed
+  if (/^can you|^please add|^could you|^would you/i.test(content)) {
+    return [];
+  }
+  
   // Special case for just "In" commands without names
   if (/^\s*in\s+\d+\s*(?:h|:|\.)\s*/i.test(content)) {
     // Don't extract any names for plain "in 15h" messages
@@ -370,6 +443,13 @@ function parseGeneralMessage(content: string): string[] {
     return [name, `${name}'s partner`];
   }
 
+  // Special case for handling Ruben in @ 17.00 style messages
+  const atTimePattern = /^([A-Za-z\u00C0-\u017F\s]+)\s+in\s+@\s+\d/i;
+  const atTimeMatch = content.match(atTimePattern);
+  if (atTimeMatch) {
+    return [atTimeMatch[1].trim()];
+  }
+
   const separators = /\s*(?:[&+,\/]|e|and)\s*/i;
   const parts = content.split(separators);
   const names: string[] = [];
@@ -383,7 +463,14 @@ function parseGeneralMessage(content: string): string[] {
       /^\d\d?:\d\d$/.test(part) || // Skip time format HH:MM
       /^\d\d?h\d\d?$/.test(part) || // Skip time format HHhMM
       /^\d\d?[:-]\d\d?$/.test(part) || // Skip any time-like format
-      /^partner$/i.test(part) // Skip standalone partner word
+      /^partner$/i.test(part) || // Skip standalone partner word
+      /^please$/i.test(part) || // Skip common words in requests/questions
+      /^thanks$/i.test(part) || 
+      /^thank you$/i.test(part) ||
+      /^group$/i.test(part) ||
+      /^add$/i.test(part) ||
+      /^to$/i.test(part) ||
+      /^the$/i.test(part)
     ) {
       continue;
     }
@@ -409,7 +496,6 @@ function cleanName(name: string): string {
     .replace(/\s+in\b|\s+out\b/i, '') // Remove trailing in/out words
     .replace(/\s+at\b/i, '') // Remove 'at' as it's usually related to time
     .replace(/[\d:]+h?/, '') // Remove time patterns
-    .replace(/\s*@\s*/, '') // Remove @ symbol
     .replace(/\s*-\s*/, '') // Remove dashes
     .replace(/\s*\/\s*/, '') // Remove slashes
     .replace(/[\d\.]+/, '') // Remove numbers

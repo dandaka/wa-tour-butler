@@ -1,4 +1,4 @@
-import { parseSignupMessage, formatTimeMatch, WhatsAppMessage } from './signup-parser';
+import { parseSignupMessage, formatTimeMatch, WhatsAppMessage, ParsedSignup } from './signup-parser';
 
 // Define Jest globals to avoid type errors
 declare const describe: (name: string, fn: () => void) => void;
@@ -52,6 +52,13 @@ describe('Signup Parser', () => {
         content
       };
     }
+    
+    // Helper function to get the first result when result could be an array or single item
+    function getSingleResult(result: ParsedSignup | ParsedSignup[] | null): ParsedSignup | null {
+      if (result === null) return null;
+      if (Array.isArray(result)) return result[0];
+      return result;
+    }
 
     /**
      * System and special messages
@@ -71,7 +78,8 @@ describe('Signup Parser', () => {
      * Team message formats
      */
     it('should parse team messages with "and"', () => {
-      const result = parseSignupMessage(createMessage('Rudi and Dani 15:00'));
+      const rawResult = parseSignupMessage(createMessage('Rudi and Dani 15h'));
+      const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
       expect(result?.names).toContain('Rudi');
       expect(result?.names).toContain('Dani');
@@ -80,7 +88,8 @@ describe('Signup Parser', () => {
     });
 
     it('should parse team messages with "&"', () => {
-      const result = parseSignupMessage(createMessage('Philipp & Diego 15h'));
+      const rawResult = parseSignupMessage(createMessage('Philipp & Diego 15h'));
+      const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
       expect(result?.names).toContain('Philipp');
       expect(result?.names).toContain('Diego');
@@ -89,7 +98,8 @@ describe('Signup Parser', () => {
     });
 
     it('should parse team messages with "e"', () => {
-      const result = parseSignupMessage(createMessage('Vlad Ra e Abilio Duarte 15h'));
+      const rawResult = parseSignupMessage(createMessage('Vlad Ra e Abilio Duarte 15h'));
+      const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
       expect(result?.names).toContain('Vlad Ra');
       expect(result?.names).toContain('Abilio Duarte');
@@ -98,7 +108,8 @@ describe('Signup Parser', () => {
     });
 
     it('should parse team messages with "+"', () => {
-      const result = parseSignupMessage(createMessage('Giu+partner in 15'));
+      const rawResult = parseSignupMessage(createMessage('Giu+partner in 15'));
+      const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
       expect(result?.names.some(name => name.includes('Giu'))).toBeTruthy();
       expect(result?.names.some(name => name.includes('partner') || name.includes('partn'))).toBeTruthy();
@@ -109,14 +120,16 @@ describe('Signup Parser', () => {
      * Single player formats
      */
     it('should parse single player messages', () => {
-      const result = parseSignupMessage(createMessage('Dennis in 15'));
+      const rawResult = parseSignupMessage(createMessage('Dennis in 15'));
+      const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
       expect(result?.names).toContain('Dennis');
       expect(result?.status).toBe('IN');
     });
 
     it('should parse single player messages with time', () => {
-      const result = parseSignupMessage(createMessage('Rafael in 15h'));
+      const rawResult = parseSignupMessage(createMessage('Rafael in 15h'));
+      const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
       expect(result?.names).toContain('Rafael');
       expect(result?.time).toBe('15:00');
@@ -124,9 +137,10 @@ describe('Signup Parser', () => {
     });
 
     it('should parse more complex single player messages', () => {
-      const result = parseSignupMessage(createMessage('Bob in with partner 17:00'));
+      const rawResult = parseSignupMessage(createMessage('Bob in with partner 17:00'));
+      const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
-      expect(result?.names.some(name => name.includes('Bob'))).toBeTruthy();
+      expect(result?.names.some((name: string) => name.includes('Bob'))).toBeTruthy();
       expect(result?.time).toBe('17:00');
       expect(result?.status).toBe('IN');
     });
@@ -135,27 +149,29 @@ describe('Signup Parser', () => {
      * Status detection (IN/OUT)
      */
     it('should detect OUT status', () => {
-      const result = parseSignupMessage(createMessage('John out 15h'));
+      const rawResult = parseSignupMessage(createMessage('John out 15h'));
+      const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
       expect(result?.names).toContain('John');
       expect(result?.status).toBe('OUT');
     });
 
-    // Complex natural language parsing removed from scope
-    // it('should detect Portuguese OUT status', () => {
-    //   const result = parseSignupMessage(createMessage('João não posso hoje'));
-    //   expect(result).not.toBeNull();
-    //   expect(result?.names).toContain('João');
-    //   expect(result?.status).toBe('OUT');
-    // });
+    it('should parse single player in messages with time', () => {
+      const rawResult = parseSignupMessage(createMessage('Dennis in 15'));
+      const result = getSingleResult(rawResult);
+      expect(result).not.toBeNull();
+      expect(result?.names).toContain('Dennis');
+      expect(result?.status).toBe('IN');
+    });
 
     /**
      * Test for specific issue with "in" being parsed as part of the name
      */
     it('should correctly handle "in" as a command not part of the name', () => {
-      const result = parseSignupMessage(createMessage('Kevin & Partner in 15h'));
+      const rawResult = parseSignupMessage(createMessage('Kevin & Partner in 15h'));
+      const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
-      expect(result?.names).toEqual(['Kevin', 'Kevin\'s partner']); // Should now convert to Kevin's partner
+      expect(result?.names).toEqual(['Kevin', "Kevin's partner"]); // Should now convert to Kevin's partner
       expect(result?.time).toBe('15:00');
       expect(result?.status).toBe('IN');
     });
@@ -165,21 +181,24 @@ describe('Signup Parser', () => {
      */
     it('should format partner names correctly', () => {
       // Test team with partner
-      const result1 = parseSignupMessage(createMessage('Giu+partner in 15'));
+      const rawResult1 = parseSignupMessage(createMessage('Giu+partner in 15'));
+      const result1 = getSingleResult(rawResult1);
       expect(result1).not.toBeNull();
-      expect(result1?.names).toEqual(['Giu', 'Giu\'s partner']);
+      expect(result1?.names).toEqual(['Giu', "Giu's partner"]);
       
       // Test single player with partner
-      const result2 = parseSignupMessage(createMessage('Bob in with partner 17:00'));
+      const rawResult2 = parseSignupMessage(createMessage('Bob in with partner 17:00'));
+      const result2 = getSingleResult(rawResult2);
       expect(result2).not.toBeNull();
-      expect(result2?.names).toEqual(['Bob', 'Bob\'s partner']);
+      expect(result2?.names).toEqual(['Bob', "Bob's partner"]);
     });
 
     /**
      * Test for handling 'at' in team names
      */
     it('should correctly handle "at" in team messages', () => {
-      const result = parseSignupMessage(createMessage('Martin and Peter at 15h'));
+      const rawResult = parseSignupMessage(createMessage('Martin and Peter at 15h'));
+      const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
       expect(result?.names).toEqual(['Martin', 'Peter']);
       expect(result?.time).toBe('15:00');
@@ -192,11 +211,95 @@ describe('Signup Parser', () => {
     it('should use phone number for anonymous messages', () => {
       const message = createMessage('In 15h');
       message.sender = '351935780509@s.whatsapp.net';
-      const result = parseSignupMessage(message);
+      const rawResult = parseSignupMessage(message);
+      const result = getSingleResult(rawResult);
       expect(result).not.toBeNull();
       expect(result?.names).toEqual(['935780509']);
       expect(result?.time).toBe('15:00');
       expect(result?.status).toBe('IN');
+    });
+
+    /**
+     * Test for properly handling newlines as separate messages
+     */
+    it('should handle multiline messages', () => {
+      const multilineMessage = createMessage('Rafael 15h\nPaul 17h\nTom and Jerry 19h');
+      const results = parseSignupMessage(multilineMessage);
+      
+      // This should return an array of results, one per line
+      expect(Array.isArray(results)).toBe(true);
+      if (Array.isArray(results)) {
+        expect(results.length).toBe(3);
+        
+        // Check first signup (Rafael)
+        expect(results[0].names).toContain('Rafael');
+        expect(results[0].time).toBe('15:00');
+        
+        // Check second signup (Paul)
+        expect(results[1].names).toContain('Paul');
+        expect(results[1].time).toBe('17:00');
+        
+        // Check third signup (Tom and Jerry)
+        expect(results[2].names).toContain('Tom');
+        expect(results[2].names).toContain('Jerry');
+        expect(results[2].time).toBe('19:00');
+      }
+    });
+
+    /**
+     * Test for handling @ symbol in names
+     */
+    it('should parse messages without names but with times', () => {
+      const message = createMessage('in 15h');
+      message.sender = '351935780509@s.whatsapp.net';
+      const rawResult = parseSignupMessage(message);
+      const result = getSingleResult(rawResult);
+      expect(result).not.toBeNull();
+      expect(result?.names).toEqual(['935780509']);
+      expect(result?.time).toBe('15:00');
+      expect(result?.status).toBe('IN');
+    });
+
+    /**
+     * Test for handling multi-line messages with multiple names
+     */
+    it('should correctly parse multi-line messages with different names', () => {
+      const message = createMessage('Julien / Mark \nJulien / Ben');
+      const results = parseSignupMessage(message);
+      
+      // Should now return an array
+      expect(Array.isArray(results)).toBe(true);
+      if (Array.isArray(results)) {
+        expect(results.length).toBe(2);
+        
+        // First line names
+        expect(results[0].names).toEqual(['Julien', 'Mark']);
+        
+        // Second line names
+        expect(results[1].names).toEqual(['Julien', 'Ben']);
+      }
+    });
+
+    /**
+     * Test for handling multiple time slots
+     */
+    it('should correctly parse messages with multiple time slots', () => {
+      const message = createMessage('Julien / Mark - 15h\nJulien / Mark - 17h');
+      const results = parseSignupMessage(message);
+      
+      // Should now return an array
+      expect(Array.isArray(results)).toBe(true);
+      if (Array.isArray(results)) {
+        expect(results.length).toBe(2);
+        
+        // First line names and time
+        expect(results[0].names).toEqual(['Julien', 'Mark']);
+        expect(results[0].time).toBe('15:00');
+        
+        // Second line names and time
+        expect(results[1].names).toEqual(['Julien', 'Mark']);
+        expect(results[1].time).toBe('17:00');
+      }
     });
 
     /**
@@ -205,8 +308,8 @@ describe('Signup Parser', () => {
     it('should parse examples from the Sao Bento P4ALL Saturday group', () => {
       const examples = [
         { message: 'Rudi and Dani 15:00', names: ['Rudi', 'Dani'], time: '15:00' },
-        { message: 'Giu+partner in 15', names: ['Giu', 'Giu\'s partner'], time: '15:00' },
-        { message: 'Bob in with partner 17:00', names: ['Bob', 'Bob\'s partner'], time: '17:00' },
+        { message: 'Giu+partner in 15', names: ['Giu', "Giu's partner"], time: '15:00' },
+        { message: 'Bob in with partner 17:00', names: ['Bob', "Bob's partner"], time: '17:00' },
         { message: 'Patrik in 15 and 17', names: ['Patrik'], time: '15:00' },
         { message: 'In 15h', names: [], time: '15:00' }, // This should ideally be skipped
         { message: 'Philipp & Diego 15h', names: ['Philipp', 'Diego'], time: '15:00' },
@@ -214,9 +317,9 @@ describe('Signup Parser', () => {
         { message: 'Tom and Louis 15h', names: ['Tom', 'Louis'], time: '15:00' },
         { message: 'Niklas and leo in 15', names: ['Niklas', 'leo'], time: '15:00' },
         { message: 'Dennis in 15', names: ['Dennis'], time: '15:00' },
-        { message: 'Miguel and partner 15h', names: ['Miguel', 'Miguel\'s partner'], time: '15:00' },
+        { message: 'Miguel and partner 15h', names: ['Miguel', "Miguel's partner"], time: '15:00' },
         { message: 'Miguel and Duarte in 17h', names: ['Miguel', 'Duarte'], time: '17:00' },
-        { message: 'Kevin & Partner in 15h', names: ['Kevin', 'Kevin\'s partner'], time: '15:00' },
+        { message: 'Kevin & Partner in 15h', names: ['Kevin', "Kevin's partner"], time: '15:00' },
         { message: 'Rafael in 15h', names: ['Rafael'], time: '15:00' },
         { message: 'Rui C e Manel P - 17h', names: ['Rui C', 'Manel P'], time: '17:00' },
         { message: 'Ruben in @ 17.00', names: ['Ruben'], time: '17:00' },
@@ -226,32 +329,33 @@ describe('Signup Parser', () => {
       ];
 
       for (const example of examples) {
-        const result = parseSignupMessage(createMessage(example.message));
+        const rawResult = parseSignupMessage(createMessage(example.message));
+        const result = getSingleResult(rawResult);
         
         // Skip tests for empty names (like "In 15h") which are edge cases
         if (example.names.length === 0) continue;
         
         expect(result).not.toBeNull();
         
+        // For each expected name, verify it's in the result
         for (const expectedName of example.names) {
-          // Check if any name in the result contains the expected name
-          const nameFound = result?.names.some(name => 
-            name.toLowerCase().includes(expectedName.toLowerCase()) || 
-            expectedName.toLowerCase().includes(name.toLowerCase())
-          );
+          const nameFound = result?.names.some((name: string) =>
+            name.toLowerCase().includes(expectedName.toLowerCase()) ||
+            expectedName.toLowerCase().includes(name.toLowerCase()));
+            
+          expect(nameFound).toBeTruthy();
           
-          // Use this for debugging when tests fail
           if (!nameFound) {
             console.log(`Name "${expectedName}" not found in result:`, result?.names);
           }
-          
-          expect(nameFound).toBeTruthy();
         }
         
+        // Verify time if provided in the example
         if (example.time) {
           expect(result?.time).toBe(example.time);
         }
         
+        // Check status (all examples are IN)
         expect(result?.status).toBe('IN');
       }
     });
