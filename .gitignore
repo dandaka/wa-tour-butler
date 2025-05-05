@@ -1,4 +1,5 @@
 session
+auth_info_baileys
 
 # WhatsApp message data files (contains private messages)
 data/

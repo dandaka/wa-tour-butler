@@ -29,28 +29,28 @@ class SimpleCache {
     this.cache = {};
   }
 }
-// Define helper functions directly in this file instead of importing
-
-// Create data directory if it doesn't exist
-const DATA_DIR = path.join(process.cwd(), 'data');
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-// Store path for session data
-const SESSION_DIR = path.join(process.cwd(), 'session');
-
-// SQLite database path in the data folder
-const DB_PATH = path.join(DATA_DIR, 'group_messages.db');
-
-// Target group name
-const TARGET_GROUP_NAME = "Dom19h Saldanha P4ALL M4+";
 
 /**
  * Minimal sync script focusing on proper notification triggering
+ * Based on the official Baileys example
  */
 async function minimalSync() {
-  console.log(`Starting minimal WhatsApp sync for group "${TARGET_GROUP_NAME}"...`);
+  console.log('Starting minimal WhatsApp sync for group "Dom19h Saldanha P4ALL M4+"...');
+  
+  // Create data directory if it doesn't exist
+  const DATA_DIR = path.join(process.cwd(), 'data');
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+
+  // Store path for session data
+  const SESSION_DIR = path.join(process.cwd(), 'session');
+
+  // SQLite database path in the data folder
+  const DB_PATH = path.join(DATA_DIR, 'group_messages.db');
+
+  // Target group name
+  const TARGET_GROUP_NAME = "Dom19h Saldanha P4ALL M4+";
   
   // Initialize database connection
   const db = new Database(DB_PATH);
@@ -83,32 +83,28 @@ async function minimalSync() {
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
   
   // Create WhatsApp socket connection with a randomized browser identifier
-  // This helps make each sync attempt appear as a new session to WhatsApp
   const browserRandomizer = Math.floor(Math.random() * 1000);
-  // Create a simple cache for message retry counter
   const msgRetryCache = new SimpleCache();
   
   const sock = makeWASocket({
     auth: state,
     printQRInTerminal: true,
     browser: ['Chrome', `Desktop-${browserRandomizer}`, '22.04.4'],
-    msgRetryCounterCache: msgRetryCache, // Proper cache implementation
+    msgRetryCounterCache: msgRetryCache,
     generateHighQualityLinkPreview: true,
   });
   
   // Track key variables
   let targetGroupJid: string | null = null;
-  let messagesAdded = 0;
   let connected = false;
   let exitTimeout: NodeJS.Timeout;
   
-  // Set timeout for the entire script to exit after 60 seconds (to allow for full sync)
+  // Set timeout for the entire script to exit after 60 seconds
   exitTimeout = setTimeout(() => {
     console.log('\nExiting after timeout...');
     // Clean up session files to make next sync attempt appear as a new session
     try {
       console.log('Regenerating session token for next sync...');
-      // We're only modifying one file to maintain login but make it appear as a new session
       const creds = path.join(SESSION_DIR, 'creds.json');
       if (fs.existsSync(creds)) {
         const credsData = JSON.parse(fs.readFileSync(creds, 'utf8'));
@@ -126,169 +122,87 @@ async function minimalSync() {
   // Save credentials on update
   sock.ev.on('creds.update', saveCreds);
   
-  // Process connection updates
+  // Handle connection updates
   sock.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect } = update;
+    const { connection, lastDisconnect, isOnline, receivedPendingNotifications } = update;
+    
+    // Log all connection updates for debugging
     console.log('Connection update:', update);
     
     if (connection === 'open') {
       connected = true;
       console.log('Connected to WhatsApp!');
+      
+      // Once connected, fetch groups and initiate sync
       fetchGroupsAndInitiateSync();
     } else if (connection === 'close') {
       const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
       
-      if (statusCode === DisconnectReason.loggedOut) {
-        console.log('Connection closed. You have been logged out.');
+      if (shouldReconnect) {
+        console.log('Connection closed. Attempting to reconnect...');
+      } else {
+        console.log('Connection closed. Logged out from WhatsApp.');
+        clearTimeout(exitTimeout);
+        process.exit(1);
       }
-      
-      // Exit cleanly
-      clearTimeout(exitTimeout);
-      process.exit(0);
     }
   });
   
-  // Helper function to extract message content
-  function extractMessageContent(message: proto.IMessage | null | undefined): string {
-    if (!message) return '';
-    
-    // Check various message types
-    if (message.conversation) return message.conversation;
-    if (message.extendedTextMessage?.text) return message.extendedTextMessage.text;
-    if (message.imageMessage?.caption) return message.imageMessage.caption;
-    if (message.videoMessage?.caption) return message.videoMessage.caption;
-    if (message.documentMessage?.caption) return message.documentMessage.caption;
-    if (message.documentMessage?.fileName) return `[Document: ${message.documentMessage.fileName}]`;
-    if (message.imageMessage) return '[Image]';
-    if (message.videoMessage) return '[Video]';
-    if (message.audioMessage) return '[Audio]';
-    if (message.stickerMessage) return '[Sticker]';
-    if (message.contactMessage) return '[Contact]';
-    if (message.locationMessage) return '[Location]';
-    if (message.contactsArrayMessage) return '[Contacts]';
-    if (message.reactionMessage) return `[Reaction: ${message.reactionMessage.text || ''}]`;
-    if (message.protocolMessage) return '[System Message]';
-    
-    return JSON.stringify(message);
-  }
-  
-  // Helper function to determine message type
-  function getMessageType(message: proto.IMessage | null | undefined): string {
-    if (!message) return 'unknown';
-    
-    if (message.conversation) return 'text';
-    if (message.extendedTextMessage) return 'text';
-    if (message.imageMessage) return 'image';
-    if (message.videoMessage) return 'video';
-    if (message.audioMessage) return 'audio';
-    if (message.documentMessage) return 'document';
-    if (message.stickerMessage) return 'sticker';
-    if (message.contactMessage) return 'contact';
-    if (message.locationMessage) return 'location';
-    if (message.contactsArrayMessage) return 'contacts';
-    if (message.reactionMessage) return 'reaction';
-    if (message.protocolMessage) return 'system';
-    
-    return 'unknown';
-  }
-  
-  // Helper function to get quoted message ID
-  function getQuotedMessageId(message: proto.IMessage | null | undefined): string | null {
-    if (!message) return null;
-    
-    const quotedInfo = message.extendedTextMessage?.contextInfo || 
-                       message.imageMessage?.contextInfo || 
-                       message.videoMessage?.contextInfo || 
-                       message.audioMessage?.contextInfo || 
-                       message.documentMessage?.contextInfo ||
-                       message.stickerMessage?.contextInfo;
-    
-    return quotedInfo?.stanzaId || null;
-  }
-  
-  // Store message in database
-  function storeMessage(msg: proto.IWebMessageInfo) {
-    try {
-      const id = msg.key.id || '';
-      const remoteJid = msg.key.remoteJid || '';
-      const fromMe = msg.key.fromMe ? 1 : 0;
-      const participant = msg.key.participant || null;
-      const pushName = msg.pushName || null;
-      const timestamp = msg.messageTimestamp as number;
-      const content = extractMessageContent(msg.message);
-      const messageType = getMessageType(msg.message);
-      const quotedMessageId = getQuotedMessageId(msg.message);
-      const raw = JSON.stringify(msg);
-      
-      const stmt = db.prepare(`
-        INSERT OR REPLACE INTO messages 
-        (id, remoteJid, fromMe, participant, pushName, timestamp, content, messageType, quotedMessageId, raw) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      
-      stmt.run(
-        id,
-        remoteJid,
-        fromMe,
-        participant,
-        pushName,
-        timestamp,
-        content,
-        messageType,
-        quotedMessageId,
-        raw
-      );
-      
-      messagesAdded++;
-      console.log(`Stored message: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`);
-      
-      return true;
-    } catch (error) {
-      console.error('Failed to store message:', error);
-      return false;
-    }
-  }
-  
-  // Process history sync events
-  sock.ev.on('messaging-history.set', (data) => {
-    const { messages, syncType } = data;
-    
-    if (messages && messages.length > 0) {
-      console.log(`Received ${messages.length} message(s) from history sync, type: ${syncType}`);
-      
-      let newMessages = 0;
-      for (const msg of messages) {
-        if (msg.key?.remoteJid === targetGroupJid) {
-          if (storeMessage(msg)) {
-            newMessages++;
+  // Handle incoming messages
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    if (type === 'notify') {
+      for (const message of messages) {
+        // Only process messages from the target group
+        if (message.key.remoteJid === targetGroupJid) {
+          try {
+            // Store message in database
+            await storeMessage(message);
+            
+            // Mark message as read (helps with sync)
+            await sock.readMessages([message.key]);
+          } catch (error) {
+            console.error('Error handling incoming message:', error);
           }
         }
       }
-      
-      if (newMessages > 0) {
-        console.log(`SUCCESS! Added ${newMessages} message(s) from history sync`);
-        
-        // Reset the timeout to exit soon after success
-        clearTimeout(exitTimeout);
-        exitTimeout = setTimeout(() => {
-          console.log('\nSuccessfully synced messages. Exiting...');
-          process.exit(0);
-        }, 5000);
-      }
     }
   });
   
-  // Handle new incoming messages
-  sock.ev.on('messages.upsert', ({ messages }) => {
-    if (!targetGroupJid) return;
-    
-    for (const msg of messages) {
-      if (msg.key.remoteJid === targetGroupJid) {
-        console.log(`New message received: ${extractMessageContent(msg.message)}`);
-        storeMessage(msg);
-      }
+  // Store message in database
+  async function storeMessage(message: proto.IWebMessageInfo) {
+    try {
+      // Skip empty messages
+      if (!message?.key?.id) return;
+      console.log('New message received:', [message.message?.conversation || message.message?.extendedTextMessage?.text || '[Media Message]'].slice(0, 50));
+      
+      const jid = message.key.remoteJid || '';
+      const fromMe = message.key.fromMe ? 1 : 0;
+      const participant = message.key.participant || null;
+      const pushName = message.pushName || null;
+      const timestamp = message.messageTimestamp as number;
+      
+      // Serialize message data
+      const serializedMessage = JSON.stringify(message.message);
+      
+      const stmt = db.prepare(`
+        INSERT OR REPLACE INTO messages (id, remoteJid, fromMe, timestamp, pushName, participant, message)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      
+      stmt.run(
+        message.key.id,
+        jid,
+        fromMe,
+        timestamp,
+        pushName,
+        participant,
+        serializedMessage
+      );
+    } catch (error) {
+      console.error('Failed to store message:', error);
     }
-  });
+  }
   
   // Find groups and initiate sync
   async function fetchGroupsAndInitiateSync() {
@@ -303,17 +217,16 @@ async function minimalSync() {
       if (group) {
         const [jid, info] = group;
         targetGroupJid = jid;
-        
-        console.log(`Found target group: ${info.subject} (${targetGroupJid})`);
+        console.log(`Found target group: ${info.subject} (${jid})`);
         console.log(`Participants: ${info.participants.length}`);
         
         // Store group info
-        await storeGroupInfo(targetGroupJid, info.subject, info.desc || null, info.participants.length);
+        await storeGroupInfo(jid, info.subject, info.desc || null, info.participants.length);
         
-        // Get last message from database
+        // Trigger message sync
         triggerMessageSync();
       } else {
-        console.log(`Target group "${TARGET_GROUP_NAME}" not found`);
+        console.error(`Target group "${TARGET_GROUP_NAME}" not found!`);
         clearTimeout(exitTimeout);
         process.exit(1);
       }
@@ -346,29 +259,28 @@ async function minimalSync() {
     }
   }
   
-  // Trigger message sync using techniques from the example.ts
+  // Trigger sync of messages
   async function triggerMessageSync() {
     try {
-      console.log('Looking for reference message to trigger sync...');
+      // Show instructions to the user regardless of reference message
+      console.log(`\n====== IMPORTANT INSTRUCTIONS ======`);
+      console.log(`1. Make sure your phone is NEARBY with WhatsApp installed`);
+      console.log(`2. CLOSE WhatsApp completely (swipe it away)`);
+      console.log(`3. Wait for this script to print "OPEN WHATSAPP NOW"`);
+      console.log(`4. When prompted, OPEN WhatsApp immediately`);
+      console.log(`5. Wait for "syncing with" notification to appear`);
+      console.log(`6. Keep WhatsApp open even after the notification disappears`);
+      console.log(`==========================================\n`);
       
-      const lastMessage = db.prepare(`
-        SELECT * FROM messages 
-        WHERE remoteJid = ? 
-        ORDER BY timestamp DESC
-        LIMIT 1
-      `).get(targetGroupJid) as any;
-      
-      if (lastMessage && lastMessage.id) {
-        console.log(`Found reference message from ${new Date(lastMessage.timestamp * 1000).toISOString()}`);
+      // First, create a dummy message key that points to the group
+      console.log('Attempting to trigger WhatsApp sync...');
+      const messageKey = {
+        remoteJid: targetGroupJid,
+        id: `dummy_${Date.now()}`, // This is just for the function call, not critical
+        fromMe: false
+      };
         
-        // Create proper message key format
-        const messageKey = {
-          remoteJid: targetGroupJid,
-          id: lastMessage.id,
-          fromMe: lastMessage.fromMe === 1,
-          participant: lastMessage.participant || undefined // Convert null to undefined
-        };
-        
+        // Show instructions to the user
         console.log(`\n====== IMPORTANT INSTRUCTIONS ======`);
         console.log(`1. Make sure your phone is NEARBY with WhatsApp installed`);
         console.log(`2. CLOSE WhatsApp completely (swipe it away)`);
@@ -378,7 +290,7 @@ async function minimalSync() {
         console.log(`6. Keep WhatsApp open even after the notification disappears`);
         console.log(`==========================================\n`);
         
-        // Step 1: Subscribe to presence first (like WhatsApp Web does)
+        // Step 1: Subscribe to presence (from official example)
         if (targetGroupJid) {
           console.log('Step 1: Subscribing to group presence...');
           await sock.presenceSubscribe(targetGroupJid);
@@ -401,7 +313,7 @@ async function minimalSync() {
           await sock.sendPresenceUpdate('composing', targetGroupJid);
           await new Promise(resolve => setTimeout(resolve, 2000));
           
-          // Step 5: Send paused status (follows official example)
+          // Step 5: Send paused status (exactly like official example)
           console.log('Step 5: Sending paused status...');
           await sock.sendPresenceUpdate('paused', targetGroupJid);
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -410,41 +322,33 @@ async function minimalSync() {
         // Step 6: Send second read receipt
         console.log('Step 6: Sending second read receipt...');
         await sock.readMessages([messageKey]);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Step 7: Fetch message history with increasing counts
-        console.log('Step 7: Requesting message history...');
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            if (typeof sock.fetchMessageHistory === 'function') {
-              console.log(`History request attempt ${attempt}/3...`);
-              const historyRequestId = await sock.fetchMessageHistory(
-                50 * attempt, // Increase message count with each attempt
-                messageKey,
-                lastMessage.timestamp || Math.floor(Date.now() / 1000)
-              );
-              console.log(`History request ${attempt} initiated with ID: ${historyRequestId}`);
-              await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Increasing delay
-            }
-              historySuccess = true;
-              break;
-            } else {
-              console.log('fetchMessageHistory not available in this Baileys version');
-              break;
-            }
-          } catch (historyError) {
-            console.error(`Error in history request attempt ${attempt}:`, historyError);
-            await new Promise(resolve => setTimeout(resolve, 1000));
           }
+        } catch (err) {
+          console.log(`History request method not supported: ${err.message}`);
         }
-      } else {
+
+        // Method 3: Try another approach from the Baileys example
+        try {
+          console.log(`Method 3: Trying conversation load...`);
+          // @ts-ignore - This is a fallback method
+          await sock.chatModify({ markRead: true }, targetGroupJid!);
+        } catch (err) {
+          console.log('Chat modification method not supported');
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Increasing delay
+      } catch (error) {
+        console.error(`Error fetching history (attempt ${attempt}):`, error);
+        await new Promise(resolve => setTimeout(resolve, 1000));
         console.log('No reference message found in database');
       }
       
+      // Wait for messages to sync
       console.log('\nWaiting for messages to sync...');
       console.log('If you see a "syncing has stopped" notification:');
-      console.log('1. Immediately OPEN WhatsApp on your iOS device'); 
+      console.log('1. Immediately OPEN WhatsApp on your iOS device');
       console.log('2. Keep it open and watch for messages to appear');
+      
       console.log('\nKEY INSTRUCTIONS:');
       console.log('* When you see "syncing with", KEEP THE SCRIPT RUNNING');
       console.log('* After "syncing stopped", wait for messages to appear in WhatsApp');

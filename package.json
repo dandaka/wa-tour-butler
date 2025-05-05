@@ -12,6 +12,9 @@
     "whatsapp-login": "ts-node src/scripts/whatsappLogin.ts",
     "sync-messages": "ts-node src/scripts/syncGroupMessages.ts",
     "sync-minimal": "ts-node src/scripts/sync-minimal.ts",
+    "sync-minimal-v2": "ts-node src/scripts/sync-minimal-v2.ts",
+    "sync-minimal-v3": "ts-node src/scripts/sync-minimal-v3.ts",
+    "fetch-history-poc": "ts-node src/scripts/fetch-history-poc.ts",
     "view-messages": "ts-node src/scripts/viewGroupMessages.ts"
   },
   "keywords": [
@@ -33,6 +36,7 @@
     "@hapi/boom": "^10.0.1",
     "baileys": "^6.7.16",
     "better-sqlite3": "^11.9.1",
+    "pino": "^9.6.0",
     "qrcode-terminal": "^0.12.0",
     "sqlite3": "^5.1.7"
   }
