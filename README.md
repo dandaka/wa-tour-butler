@@ -66,6 +66,7 @@ pnpm run dev
 - `pnpm run start` - Start the built application
 - `pnpm run watch` - Build and watch for changes
 - `pnpm run whatsapp-login` - Connect to WhatsApp Web and create session files
+- `pnpm run parse-all` - Process signup messages from all configured groups (defined in groups.csv)
 - `pnpm run sync-messages` - Sync messages from the target group to the database
   - Optional time period parameter: `1h` (1 hour), `1d` (1 day), `1w` (1 week)
 - `pnpm run view-messages` - Display messages from the target group in chronological order
