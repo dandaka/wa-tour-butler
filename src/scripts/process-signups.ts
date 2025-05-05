@@ -2,6 +2,7 @@ import BetterSqlite3 from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import csv from 'csv-parser';
+import { parseSignupMessage, WhatsAppMessage, ParsedSignup } from '../utils/signup-parser';
 
 type DatabaseType = ReturnType<typeof BetterSqlite3>;
 
@@ -15,27 +16,15 @@ interface GroupInfo {
   maxTeams?: number;
 }
 
-interface Message {
+interface Message extends WhatsAppMessage {
   id: string;
   chat_id: string;
-  sender: string;
-  timestamp: number;
-  content: string;
   is_from_me: number;
-}
-
-interface FormattedSignup {
-  originalMessage: string;
-  names: string[];
-  time?: string;
-  status: 'IN' | 'OUT';
-  timestamp: number;
-  sender: string;
 }
 
 interface ProcessingResult {
   registrationOpenMessage?: Message;
-  signups: FormattedSignup[];
+  signups: ParsedSignup[];
   finalPlayerList: string[];
 }
 
@@ -43,11 +32,18 @@ interface ProcessingResult {
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const DB_PATH = path.join(PROJECT_ROOT, 'data/whatsapp_messages.db');
 const GROUPS_CSV_PATH = path.join(PROJECT_ROOT, 'GROUPS.csv');
-const REGISTRATION_START_KEYWORD = 'Inscrições abertas';
+// More flexible registration keywords
+const REGISTRATION_KEYWORDS = [
+  'Inscrições abertas',
+  'Inscrições',
+  'abertas',
+  'inscrição',
+  'Registros'  
+];
 const OUTPUT_DIR = PROJECT_ROOT;
 
 // Main function
-async function processSignups(groupId: string, outputPath?: string) {
+async function processSignups(groupId: string, outputPath?: string, forceRegistrationTimestamp?: number) {
   console.log(`Processing signups for group ${groupId}...`);
   
   // Connect to database
@@ -67,7 +63,7 @@ async function processSignups(groupId: string, outputPath?: string) {
     console.log(`Found ${messages.length} messages in this group`);
     
     // 3. Process messages
-    const result = processMessages(messages, groupInfo);
+    const result = processMessages(messages, groupInfo, forceRegistrationTimestamp);
     
     // 4. Output results
     const logOutput = formatOutput(result, groupInfo);
@@ -131,7 +127,7 @@ function getMessagesFromGroup(db: DatabaseType, groupId: string): Message[] {
 }
 
 // Process messages to extract signup information
-function processMessages(messages: Message[], groupInfo: GroupInfo): ProcessingResult {
+function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistrationTimestamp?: number): ProcessingResult {
   const result: ProcessingResult = {
     signups: [],
     finalPlayerList: []
@@ -141,14 +137,33 @@ function processMessages(messages: Message[], groupInfo: GroupInfo): ProcessingR
   let registrationStarted = false;
   let registrationTimestamp = 0;
   
-  console.log(`Looking for admin ${groupInfo.admin} messages containing '${REGISTRATION_START_KEYWORD}'`);
+  console.log(`Looking for admin ${groupInfo.admin} messages related to registration`);
   
-  // Check for any messages that look like registration openings
+  // Check for any messages that look like registration openings more flexibly
   const potentialRegistrationMessages = messages
     .filter(m => m.sender === groupInfo.admin)
-    .filter(m => m.content.includes(REGISTRATION_START_KEYWORD));
+    .filter(m => {
+      const lowerContent = m.content.toLowerCase();
+      // Match if any registration keyword appears
+      return REGISTRATION_KEYWORDS.some(keyword => 
+        lowerContent.includes(keyword.toLowerCase())
+      ) ||
+      // Or check for patterns that suggest a registration opening
+      (lowerContent.includes('h') && 
+       (lowerContent.match(/\d+[h:]\d+/) || lowerContent.match(/\d+h/)) && 
+       (lowerContent.includes('h00') || lowerContent.includes('h30')))
+    });
   
   console.log(`Found ${potentialRegistrationMessages.length} potential registration messages`);
+  
+  // For debugging, show the potential registration messages
+  if (potentialRegistrationMessages.length > 0) {
+    console.log('Potential registration messages:');
+    potentialRegistrationMessages.forEach((msg, i) => {
+      const date = new Date(msg.timestamp * 1000);
+      console.log(`${i+1}. [${date.toLocaleString()}] ${msg.content.substring(0, 80)}${msg.content.length > 80 ? '...' : ''}`);
+    });
+  }
   
   // Find the most recent messages first (starting from the end)
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -156,11 +171,23 @@ function processMessages(messages: Message[], groupInfo: GroupInfo): ProcessingR
     
     // Be more flexible for registration detection
     const isFromAdmin = message.sender === groupInfo.admin;
-    const containsRegistrationKeyword = message.content.includes(REGISTRATION_START_KEYWORD);
+    const lowerContent = message.content.toLowerCase();
+    
+    // Match any registration keyword
+    const containsRegistrationKeyword = REGISTRATION_KEYWORDS.some(keyword => 
+      lowerContent.includes(keyword.toLowerCase())
+    );
+    
+    // Check for time slots pattern
     const containsTimeSlots = /\d+[h:]\d+|\d+h/.test(message.content);
     
-    if (isFromAdmin && (containsRegistrationKeyword || 
-        (isFromAdmin && containsTimeSlots && message.content.toLowerCase().includes('inscri')))) {
+    // Special case for admin messages with time patterns typical of registration opening
+    const looksLikeRegistration = isFromAdmin && 
+      containsTimeSlots && 
+      (message.content.includes('15h00') || message.content.includes('15:00') || 
+       message.content.includes('17h00') || message.content.includes('17:00'));
+    
+    if (isFromAdmin && (containsRegistrationKeyword || looksLikeRegistration)) {
       registrationStarted = true;
       registrationTimestamp = message.timestamp;
       result.registrationOpenMessage = message;
@@ -168,6 +195,17 @@ function processMessages(messages: Message[], groupInfo: GroupInfo): ProcessingR
       console.log(`Content: "${message.content}"`);
       // Break after finding the most recent registration message
       break;
+    }
+  }
+  
+  // If forceRegistrationTimestamp is provided, use it instead
+  if (forceRegistrationTimestamp) {
+    registrationStarted = true;
+    registrationTimestamp = forceRegistrationTimestamp;
+    const forcedMessage = messages.find(m => m.timestamp >= forceRegistrationTimestamp);
+    if (forcedMessage) {
+      result.registrationOpenMessage = forcedMessage;
+      console.log(`Using forced registration timestamp: ${new Date(forceRegistrationTimestamp * 1000).toLocaleString()}`);
     }
   }
   
@@ -184,7 +222,7 @@ function processMessages(messages: Message[], groupInfo: GroupInfo): ProcessingR
         console.log(`Processing potential signup: ${new Date(message.timestamp * 1000).toLocaleString()} - ${message.content}`);
       }
       
-      // Parse message for signup information
+      // Parse message for signup information using our modular parser
       const parsedSignup = parseSignupMessage(message);
       if (parsedSignup) {
         result.signups.push(parsedSignup);
@@ -213,212 +251,6 @@ function processMessages(messages: Message[], groupInfo: GroupInfo): ProcessingR
   return result;
 }
 
-// Parse a signup message to extract player names and status
-function parseSignupMessage(message: Message): FormattedSignup | null {
-  const content = message.content.trim();
-  
-  // Skip empty messages
-  if (!content) return null;
-  
-  // Skip protocol messages and system messages
-  if (content.includes('[PROTOCOLMESSAGE]') || 
-      content.includes('[MESSAGECONTEXTINFO]') ||
-      content.match(/^(\d+)$/) || // Skip messages that are just a number
-      content.length < 3) { // Skip very short messages
-    return null; 
-  }
-  
-  // Debug parsing attempts for troubleshooting
-  const debug = message.timestamp > Date.now()/1000 - 3600; // Debug messages from last hour
-  if (debug) {
-    console.log(`Trying to parse: "${content}"`);
-  }
-  
-  // Check if it's an OUT message
-  const isOut = /\b(out|sai|saio|n[aã]o posso|can't make it|cancel)\b/i.test(content);
-  
-  // Extract time if present (common formats: 15h, 15:00, etc.)
-  const timeMatch = content.match(/\b(\d{1,2})[h:](\d{2})?\b|\b(\d{1,2})h\b/i);
-  
-  // All messages coming after registration are considered IN by default unless marked as OUT
-  // This makes the parser more lenient for typical short signup messages
-  let time: string | undefined = undefined;
-  
-  if (timeMatch) {
-    time = formatTimeMatch(timeMatch);
-  }
-  
-  // Split content into parts based on common separators
-  const separators = /\s*(?:[&+,\/]|e|and)\s*/i;
-  const parts = content.split(separators);
-  
-  // Extract names
-  const names: string[] = [];
-  
-  // For very simple messages, consider the whole message as a name
-  // This handles cases like "João in 15h" where we want to extract "João"
-  if (parts.length <= 3 && content.length < 30 && !isOut) {
-    // Extract the first part that looks like a name
-    const simpleName = content.replace(/\b\d+[h:]?\d*\b|\bin\b|\bout\b|\bh\b|\b[0-9]+\b/gi, '').trim();
-    if (simpleName && simpleName.length > 1) {
-      return {
-        originalMessage: content,
-        names: [simpleName],
-        time: timeMatch ? formatTimeMatch(timeMatch) : undefined,
-        status: isOut ? 'OUT' : 'IN',
-        timestamp: message.timestamp,
-        sender: message.sender
-      };
-    }
-  }
-  
-  for (const part of parts) {
-    // Skip parts that might be just time or other info
-    if (
-      /^\d+[h:]?\d*$/.test(part) || // Skip time patterns
-      /^in$|^out$|^sim$|^yes$|^no$|^não$/i.test(part) || // Skip yes/no words
-      /^\s*$/.test(part) || // Skip empty parts
-      /^\d\d?:\d\d$/.test(part) || // Skip time format HH:MM
-      /^\d\d?h\d\d?$/.test(part) || // Skip time format HHhMM
-      /^\d\d?[:-]\d\d?$/.test(part) // Skip any time-like format
-    ) {
-      continue;
-    }
-    
-    // Clean up the name
-    let name = part.trim()
-      .replace(/^\s*[-•]?\s*/, '') // Remove leading dashes or bullets
-      .replace(/\s+/, ' ') // Normalize spaces
-      .replace(/\bin\b|\bout\b/i, '') // Remove standalone in/out words
-      .trim();
-    
-    // Extract name from common patterns
-    const nameMatch = name.match(/^([A-Za-z\s.\-']+)(?:\s*\([^)]*\))?/);
-    if (nameMatch && nameMatch[1].trim().length > 1) {
-      name = nameMatch[1].trim();
-      names.push(name);
-    } else if (name.length > 1) {
-      names.push(name);
-    }
-  }
-  
-  // Skip if no valid names found
-  if (names.length === 0) {
-    // Last attempt - for very simple messages, use the whole message without numbers
-    if (content.length < 30) {
-      const simpleName = content.replace(/\b\d+[h:]?\d*\b|\bin\b|\bout\b|\bh\b|\b[0-9]+\b/gi, '').trim();
-      if (simpleName && simpleName.length > 1) {
-        names.push(simpleName);
-      }
-    }
-    
-    // If still no names, return null
-    if (names.length === 0) return null;
-  }
-  
-  return {
-    originalMessage: content,
-    names,
-    time,
-    status: isOut ? 'OUT' : 'IN',
-    timestamp: message.timestamp,
-    sender: message.sender
-  };
-}
-
-// Helper function to format time matches consistently
-function formatTimeMatch(timeMatch: RegExpMatchArray): string {
-  if (timeMatch[3]) {
-    // Format like "15h"
-    return `${timeMatch[3]}:00`;
-  } else if (timeMatch[1] && timeMatch[2]) {
-    // Format like "15:00"
-    return `${timeMatch[1]}:${timeMatch[2]}`;
-  } else if (timeMatch[1]) {
-    // Format like "15"
-    return `${timeMatch[1]}:00`;
-  }
-  return "";
-}
-  
-  // Split content into parts based on common separators
-  const separators = /\s*(?:[&+,\/]|e|and)\s*/i;
-  const parts = content.split(separators);
-  
-  // Extract names
-  const names: string[] = [];
-  
-  // For very simple messages, consider the whole message as a name
-  // This handles cases like "João in 15h" where we want to extract "João"
-  if (parts.length <= 3 && content.length < 30 && !isOut) {
-    // Extract the first part that looks like a name
-    const simpleName = content.replace(/\b\d+[h:]?\d*\b|\bin\b|\bout\b|\bh\b|\b[0-9]+\b/gi, '').trim();
-    if (simpleName && simpleName.length > 1) {
-      return {
-        originalMessage: content,
-        names: [simpleName],
-        time: timeMatch ? formatTimeMatch(timeMatch) : undefined,
-        status: isOut ? 'OUT' : 'IN',
-        timestamp: message.timestamp,
-        sender: message.sender
-      };
-    }
-  }
-  
-  for (const part of parts) {
-    // Skip parts that might be just time or other info
-    if (
-      /^\d+[h:]?\d*$/.test(part) || // Skip time patterns
-      /^in$|^out$|^sim$|^yes$|^no$|^não$/i.test(part) || // Skip yes/no words
-      /^\s*$/.test(part) || // Skip empty parts
-      /^\d\d?:\d\d$/.test(part) || // Skip time format HH:MM
-      /^\d\d?h\d\d?$/.test(part) || // Skip time format HHhMM
-      /^\d\d?[:-]\d\d?$/.test(part) // Skip any time-like format
-    ) {
-      continue;
-    }
-    
-    // Clean up the name
-    let name = part.trim()
-      .replace(/^\s*[-•]?\s*/, '') // Remove leading dashes or bullets
-      .replace(/\s+/, ' ') // Normalize spaces
-      .replace(/\bin\b|\bout\b/i, '') // Remove standalone in/out words
-      .trim();
-    
-    // Extract name from common patterns
-    const nameMatch = name.match(/^([A-Za-z\s.\-']+)(?:\s*\([^)]*\))?/);
-    if (nameMatch && nameMatch[1].trim().length > 1) {
-      name = nameMatch[1].trim();
-      names.push(name);
-    } else if (name.length > 1) {
-      names.push(name);
-    }
-  }
-  
-  // Skip if no valid names found
-  if (names.length === 0) {
-    // Last attempt - for very simple messages, use the whole message without numbers
-    if (content.length < 30) {
-      const simpleName = content.replace(/\b\d+[h:]?\d*\b|\bin\b|\bout\b|\bh\b|\b[0-9]+\b/gi, '').trim();
-      if (simpleName && simpleName.length > 1) {
-        names.push(simpleName);
-      }
-    }
-    
-    // If still no names, return null
-    if (names.length === 0) return null;
-  }
-  
-  return {
-    originalMessage: content,
-    names,
-    time,
-    status: isOut ? 'OUT' : 'IN',
-    timestamp: message.timestamp,
-    sender: message.sender
-  };
-}
-
 // Format the output for logging
 function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): string {
   let output = `# Signup Processing for ${groupInfo.name}\n\n`;
@@ -430,6 +262,49 @@ function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): string {
     output += `- Registration opened: ${date.toLocaleString()}\n`;
     output += `- Admin: ${groupInfo.admin}\n`;
     output += `- Original message: "${result.registrationOpenMessage.content}"\n\n`;
+  }
+  
+  // Summary by time slot
+  const timeSlots: Record<string, string[]> = {};
+  const unspecifiedTimeSlot: string[] = [];
+  
+  result.signups.forEach(signup => {
+    if (!signup.time) {
+      signup.names.forEach(name => {
+        if (!unspecifiedTimeSlot.includes(name)) {
+          unspecifiedTimeSlot.push(name);
+        }
+      });
+    } else {
+      const timeKey = signup.time; // Store in a constant to avoid type errors
+      if (!timeSlots[timeKey]) {
+        timeSlots[timeKey] = [];
+      }
+      
+      signup.names.forEach(name => {
+        if (!timeSlots[timeKey].includes(name)) {
+          timeSlots[timeKey].push(name);
+        }
+      });
+    }
+  });
+  
+  output += `## Players by Time Slot\n\n`;
+  
+  Object.keys(timeSlots).sort().forEach(time => {
+    output += `### ${time} Time Slot (${timeSlots[time].length} players)\n\n`;
+    timeSlots[time].forEach((player, index) => {
+      output += `${index + 1}. ${player}\n`;
+    });
+    output += `\n`;
+  });
+  
+  if (unspecifiedTimeSlot.length > 0) {
+    output += `### Time Not Specified (${unspecifiedTimeSlot.length} players)\n\n`;
+    unspecifiedTimeSlot.forEach((player, index) => {
+      output += `${index + 1}. ${player}\n`;
+    });
+    output += `\n`;
   }
   
   // Signups log
@@ -470,17 +345,23 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const groupId = args[0];
   const outputPath = args[1];
+  const forceTimestamp = args[2] ? parseInt(args[2]) : undefined;
   
   if (!groupId) {
     console.error('Please provide a group ID as the first argument');
     process.exit(1);
   }
   
-  processSignups(groupId, outputPath).catch(err => {
+  // If a timestamp is provided, we can use it to force a specific registration time
+  if (forceTimestamp) {
+    console.log(`Forcing registration timestamp to: ${new Date(forceTimestamp * 1000).toLocaleString()}`);
+  }
+  
+  processSignups(groupId, outputPath, forceTimestamp).catch(err => {
     console.error('Error processing signups:', err);
     process.exit(1);
   });
 }
 
 // Export for use in other modules
-export { processSignups, parseSignupMessage };
+export { processSignups };

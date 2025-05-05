@@ -148,13 +148,39 @@ describe('Signup Parser', () => {
     // });
 
     /**
+     * Test for specific issue with "in" being parsed as part of the name
+     */
+    it('should correctly handle "in" as a command not part of the name', () => {
+      const result = parseSignupMessage(createMessage('Kevin & Partner in 15h'));
+      expect(result).not.toBeNull();
+      expect(result?.names).toEqual(['Kevin', 'Kevin\'s partner']); // Should now convert to Kevin's partner
+      expect(result?.time).toBe('15:00');
+      expect(result?.status).toBe('IN');
+    });
+    
+    /**
+     * Test partner name formatting
+     */
+    it('should format partner names correctly', () => {
+      // Test team with partner
+      const result1 = parseSignupMessage(createMessage('Giu+partner in 15'));
+      expect(result1).not.toBeNull();
+      expect(result1?.names).toEqual(['Giu', 'Giu\'s partner']);
+      
+      // Test single player with partner
+      const result2 = parseSignupMessage(createMessage('Bob in with partner 17:00'));
+      expect(result2).not.toBeNull();
+      expect(result2?.names).toEqual(['Bob', 'Bob\'s partner']);
+    });
+
+    /**
      * Real-world examples from the Sao Bento P4ALL Saturday group
      */
     it('should parse examples from the Sao Bento P4ALL Saturday group', () => {
       const examples = [
         { message: 'Rudi and Dani 15:00', names: ['Rudi', 'Dani'], time: '15:00' },
-        { message: 'Giu+partner in 15', names: ['Giu'], time: '15:00' },
-        { message: 'Bob in with partner 17:00', names: ['Bob'], time: '17:00' },
+        { message: 'Giu+partner in 15', names: ['Giu', 'Giu\'s partner'], time: '15:00' },
+        { message: 'Bob in with partner 17:00', names: ['Bob', 'Bob\'s partner'], time: '17:00' },
         { message: 'Patrik in 15 and 17', names: ['Patrik'], time: '15:00' },
         { message: 'In 15h', names: [], time: '15:00' }, // This should ideally be skipped
         { message: 'Philipp & Diego 15h', names: ['Philipp', 'Diego'], time: '15:00' },
@@ -162,9 +188,9 @@ describe('Signup Parser', () => {
         { message: 'Tom and Louis 15h', names: ['Tom', 'Louis'], time: '15:00' },
         { message: 'Niklas and leo in 15', names: ['Niklas', 'leo'], time: '15:00' },
         { message: 'Dennis in 15', names: ['Dennis'], time: '15:00' },
-        { message: 'Miguel and partner 15h', names: ['Miguel', 'partner'], time: '15:00' },
+        { message: 'Miguel and partner 15h', names: ['Miguel', 'Miguel\'s partner'], time: '15:00' },
         { message: 'Miguel and Duarte in 17h', names: ['Miguel', 'Duarte'], time: '17:00' },
-        { message: 'Kevin & Partner in 15h', names: ['Kevin', 'Partner'], time: '15:00' },
+        { message: 'Kevin & Partner in 15h', names: ['Kevin', 'Kevin\'s partner'], time: '15:00' },
         { message: 'Rafael in 15h', names: ['Rafael'], time: '15:00' },
         { message: 'Rui C e Manel P - 17h', names: ['Rui C', 'Manel P'], time: '17:00' },
         { message: 'Ruben in @ 17.00', names: ['Ruben'], time: '17:00' },

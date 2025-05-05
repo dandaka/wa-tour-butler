@@ -58,9 +58,12 @@ export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | nul
   // 1. Try team pattern first (e.g., "Name1 and Name2 15h")
   const teamResult = parseTeamMessage(content);
   if (teamResult) {
+    // Handle partner cases for teams
+    const processedNames = processPartnerNames(teamResult);
+    
     return {
       originalMessage: content,
-      names: teamResult,
+      names: processedNames,
       time,
       status: isOut ? 'OUT' : 'IN',
       timestamp: message.timestamp,
@@ -71,6 +74,37 @@ export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | nul
   // 2. Try single player pattern (e.g., "Name in 15h")
   const singlePlayer = parseSinglePlayerMessage(content);
   if (singlePlayer) {
+    // Handle special case for "with partner" explicitly
+    const withPartnerPattern = /^([A-Za-z\u00C0-\u017F]+)[\s\w]*(?:with|com)\s+partner/i;
+    const withPartnerMatch = content.match(withPartnerPattern);
+    
+    if (withPartnerMatch) {
+      const name = withPartnerMatch[1].trim();
+      return {
+        originalMessage: content,
+        names: [name, `${name}'s partner`],
+        time,
+        status: isOut ? 'OUT' : 'IN',
+        timestamp: message.timestamp,
+        sender: message.sender
+      };
+    }
+    
+    // Check if this is a player with partner (other patterns)
+    if (content.toLowerCase().includes('with partner') || 
+        content.toLowerCase().includes('com partner') ||
+        content.toLowerCase().includes('+ partner')) {
+      const playerName = singlePlayer.replace(/\s+with\s+partner/i, '');
+      return {
+        originalMessage: content,
+        names: [playerName, `${playerName}'s partner`],
+        time,
+        status: isOut ? 'OUT' : 'IN',
+        timestamp: message.timestamp,
+        sender: message.sender
+      };
+    }
+    
     return {
       originalMessage: content,
       names: [singlePlayer],
@@ -89,9 +123,12 @@ export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | nul
     return null;
   }
   
+  // Process partner names in general messages too
+  const processedNames = processPartnerNames(names);
+  
   return {
     originalMessage: content,
-    names,
+    names: processedNames,
     time,
     status: isOut ? 'OUT' : 'IN',
     timestamp: message.timestamp,
@@ -167,6 +204,42 @@ export function formatTimeMatch(timeMatch: RegExpMatchArray): string {
 }
 
 /**
+ * Helper function to process partner names
+ * Converts generic "partner" to "[PlayerName]'s partner"
+ */
+function processPartnerNames(names: string[]): string[] {
+  const result: string[] = [];
+  let lastRealName = "";
+  
+  for (let i = 0; i < names.length; i++) {
+    const name = names[i];
+    
+    // Keep track of the last real name (not a partner)
+    if (name.toLowerCase() !== 'partner' && !name.toLowerCase().includes('partner')) {
+      lastRealName = name;
+    }
+    
+    // Check if this is a generic partner name or contains the word "partner"
+    if (name.toLowerCase() === 'partner' && lastRealName) {
+      // Use the previous player's name to create a more descriptive partner name
+      result.push(`${lastRealName}'s partner`);
+    } else if (name.toLowerCase().includes('partner') && name.toLowerCase() !== 'partner' && lastRealName) {
+      // If it includes "partner" but isn't just "partner", replace it
+      if (name.match(/\s+with\s+partner/i)) {
+        result.push(name.replace(/\s+with\s+partner/i, ''));
+        result.push(`${lastRealName}'s partner`);
+      } else {
+        result.push(name);
+      }
+    } else {
+      result.push(name);
+    }
+  }
+  
+  return result;
+}
+
+/**
  * Parse a message that appears to contain a team (two people)
  * e.g., "Name1 and Name2 15h"
  */
@@ -176,8 +249,17 @@ function parseTeamMessage(content: string): string[] | null {
   const teamMatch = content.match(teamPattern);
   
   if (teamMatch) {
-    const name1 = teamMatch[1].trim();
-    const name2 = teamMatch[3].trim();
+    let name1 = teamMatch[1].trim();
+    let name2 = teamMatch[3].trim();
+    
+    // Check if either name ends with "in" command word and remove it
+    name1 = name1.replace(/\s+in\b/i, '');
+    name2 = name2.replace(/\s+in\b/i, '');
+    
+    // Special case for "Name+partner" or "Name & partner"
+    if (name2.toLowerCase() === 'partner') {
+      name2 = `${name1}'s partner`;
+    }
     
     // Only if both parts look like names (2+ chars, not just numbers/times)
     if (name1.length > 1 && name2.length > 1 && 
@@ -199,7 +281,10 @@ function parseSinglePlayerMessage(content: string): string | null {
   const singleMatch = content.match(singlePlayerPattern);
   
   if (singleMatch && singleMatch[1].trim().length > 1) {
-    return cleanName(singleMatch[1].trim());
+    // Remove the "in" command if it's part of the name
+    let name = singleMatch[1].trim();
+    name = name.replace(/\s+in\b/i, '');
+    return cleanName(name);
   }
   
   return null;
@@ -209,6 +294,15 @@ function parseSinglePlayerMessage(content: string): string | null {
  * Parse a general message by splitting it into parts based on common separators
  */
 function parseGeneralMessage(content: string): string[] {
+  // Handle special cases first
+  // 1. Pattern for Giu+partner format
+  const partnerPlusPattern = /([A-Za-z\u00C0-\u017F]+)\s*[+]\s*partner/i;
+  const partnerPlusMatch = content.match(partnerPlusPattern);
+  if (partnerPlusMatch) {
+    const name = partnerPlusMatch[1].trim();
+    return [name, `${name}'s partner`];
+  }
+
   const separators = /\s*(?:[&+,\/]|e|and)\s*/i;
   const parts = content.split(separators);
   const names: string[] = [];
@@ -221,7 +315,8 @@ function parseGeneralMessage(content: string): string[] {
       /^\s*$/.test(part) || // Skip empty parts
       /^\d\d?:\d\d$/.test(part) || // Skip time format HH:MM
       /^\d\d?h\d\d?$/.test(part) || // Skip time format HHhMM
-      /^\d\d?[:-]\d\d?$/.test(part) // Skip any time-like format
+      /^\d\d?[:-]\d\d?$/.test(part) || // Skip any time-like format
+      /^partner$/i.test(part) // Skip standalone partner word
     ) {
       continue;
     }
@@ -244,7 +339,7 @@ function cleanName(name: string): string {
   return name.trim()
     .replace(/^\s*[-•]?\s*/, '') // Remove leading dashes or bullets
     .replace(/\s+/, ' ') // Normalize spaces
-    .replace(/\bin\b|\bout\b/i, '') // Remove standalone in/out words
+    .replace(/\s+in\b|\s+out\b/i, '') // Remove trailing in/out words
     .replace(/[\d:]+h?/, '') // Remove time patterns
     .replace(/\s*@\s*/, '') // Remove @ symbol
     .replace(/\s*-\s*/, '') // Remove dashes

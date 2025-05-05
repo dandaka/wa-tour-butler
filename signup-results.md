@@ -11,50 +11,58 @@
 
 ## Players by Time Slot
 
-### 15:00 Time Slot (21 players)
+### 15:00 Time Slot (27 players)
 
 1. Rudi
 2. Dani
-3. In
-4. Philipp
-5. Diego
-6. Vlad Ra
-7. Abilio Duarte
-8. Tom
-9. Louis
-10. Miguel
-11. partner
-12. Juli
-13. MarkJuli
-14. Mik
-15. Kevin
-16. Partner in
-17. Rafael in
-18. Gui
-19. Martin
-20. Peter at
-21. Dan
+3. Giu
+4. Giu's partner
+5. Patrik
+6. In
+7. Philipp
+8. Diego
+9. Vlad Ra
+10. Abilio Duarte
+11. Tom
+12. Louis
+13. Niklas
+14. leo
+15. Dennis
+16. Miguel
+17. Miguel's partner
+18. Juli
+19. MarkJuli
+20. Mik
+21. Kevin
+22. Kevin's partner
+23. Rafael
+24. Gui
+25. Martin
+26. Peter at
+27. Dan
 
-### 17:00 Time Slot (5 players)
+### 17:00 Time Slot (7 players)
 
-1. Bob in with partner
-2. Miguel
-3. Duarte in
-4. Rui C
-5. Manel P -
-
-### Time Not Specified (9 players)
-
-1. Giu
-2. partn
-3. Patrik
-4. Niklas
-5. leo in
-6. Dennis in
+1. Bob
+2. Bob's partner
+3. Miguel
+4. Duarte
+5. Rui C
+6. Manel P -
 7. Rub
-8. Julien
-9. Mark 
+
+### Time Not Specified (8 players)
+
+1. Julien
+2. Mark 
 Julien
+3. can you pl
+4. as
+5. add Philipp to th
+6. group ! 
+thanks
+7. philipp
+8. ffing
 
 ## Signup Processing Log
 
@@ -68,13 +76,14 @@ Julien
 ### Signup #2 (6:59:13 PM)
 - Original message: "Giu+partner in 15"
 - Sender: 393398796077@s.whatsapp.net
-- Parsed names: Giu, partn
+- Parsed names: Giu, Giu's partner
+- Time slot: 15:00
 - Status: IN
 
 ### Signup #3 (6:59:14 PM)
 - Original message: "Bob in with partner 17:00"
 - Sender: 31641316698@s.whatsapp.net
-- Parsed names: Bob in with partner
+- Parsed names: Bob, Bob's partner
 - Time slot: 17:00
 - Status: IN
 
@@ -82,6 +91,7 @@ Julien
 - Original message: "Patrik in 15 and 17"
 - Sender: 46702419301@s.whatsapp.net
 - Parsed names: Patrik
+- Time slot: 15:00
 - Status: IN
 
 ### Signup #5 (6:59:15 PM)
@@ -115,19 +125,21 @@ Julien
 ### Signup #9 (6:59:47 PM)
 - Original message: "Niklas and leo in 15"
 - Sender: 4915735467749@s.whatsapp.net
-- Parsed names: Niklas, leo in
+- Parsed names: Niklas, leo
+- Time slot: 15:00
 - Status: IN
 
 ### Signup #10 (6:59:51 PM)
 - Original message: "Dennis in 15"
 - Sender: 4915120104551@s.whatsapp.net
-- Parsed names: Dennis in
+- Parsed names: Dennis
+- Time slot: 15:00
 - Status: IN
 
 ### Signup #11 (6:59:59 PM)
 - Original message: "Miguel and partner 15h"
 - Sender: 351919305285@s.whatsapp.net
-- Parsed names: Miguel, partner
+- Parsed names: Miguel, Miguel's partner
 - Time slot: 15:00
 - Status: IN
 
@@ -142,21 +154,21 @@ Julien / Mike - 17h"
 ### Signup #13 (7:01:02 PM)
 - Original message: "Miguel and Duarte in 17h"
 - Sender: 351919305285@s.whatsapp.net
-- Parsed names: Miguel, Duarte in
+- Parsed names: Miguel, Duarte
 - Time slot: 17:00
 - Status: IN
 
 ### Signup #14 (7:04:39 PM)
 - Original message: "Kevin & Partner in 15h"
 - Sender: 4915908498953@s.whatsapp.net
-- Parsed names: Kevin, Partner in
+- Parsed names: Kevin, Kevin's partner
 - Time slot: 15:00
 - Status: IN
 
 ### Signup #15 (7:05:02 PM)
 - Original message: "Rafael in 15h"
 - Sender: 351935231493@s.whatsapp.net
-- Parsed names: Rafael in
+- Parsed names: Rafael
 - Time slot: 15:00
 - Status: IN
 
@@ -171,6 +183,7 @@ Julien / Mike - 17h"
 - Original message: "Ruben in @ 17.00"
 - Sender: 447412087936@s.whatsapp.net
 - Parsed names: Rub
+- Time slot: 17:00
 - Status: IN
 
 ### Signup #18 (7:25:13 PM)
@@ -202,40 +215,69 @@ Julien
 - Time slot: 15:00
 - Status: IN
 
-## Final Player List (34 players)
+### Signup #22 (8:37:38 PM)
+- Original message: "can you please add Philipp to the group ! 
+thanks"
+- Sender: 33621666469@s.whatsapp.net
+- Parsed names: can you pl, as, add Philipp to th, group ! 
+thanks
+- Status: IN
+
+### Signup #23 (8:37:45 PM)
+- Original message: "philipp effinger"
+- Sender: 33621666469@s.whatsapp.net
+- Parsed names: philipp, ffing
+- Status: IN
+
+### Signup #24 (8:44:13 PM)
+- Original message: "Mike /Ben 15h"
+- Sender: 351933928517@s.whatsapp.net
+- Parsed names: Mik
+- Time slot: 15:00
+- Status: IN
+
+## Final Player List (41 players)
 
 1. Rudi
 2. Dani
 3. Giu
-4. partn
-5. Bob in with partner
-6. Patrik
-7. In
-8. Philipp
-9. Diego
-10. Vlad Ra
-11. Abilio Duarte
-12. Tom
-13. Louis
-14. Niklas
-15. leo in
-16. Dennis in
-17. Miguel
-18. partner
-19. Juli
-20. MarkJuli
-21. Mik
-22. Duarte in
-23. Kevin
-24. Partner in
-25. Rafael in
-26. Rui C
-27. Manel P -
-28. Rub
-29. Julien
-30. Mark 
+4. Giu's partner
+5. Bob
+6. Bob's partner
+7. Patrik
+8. In
+9. Philipp
+10. Diego
+11. Vlad Ra
+12. Abilio Duarte
+13. Tom
+14. Louis
+15. Niklas
+16. leo
+17. Dennis
+18. Miguel
+19. Miguel's partner
+20. Juli
+21. MarkJuli
+22. Mik
+23. Duarte
+24. Kevin
+25. Kevin's partner
+26. Rafael
+27. Rui C
+28. Manel P -
+29. Rub
+30. Julien
+31. Mark 
 Julien
-31. Gui
-32. Martin
-33. Peter at
-34. Dan
+32. Gui
+33. Martin
+34. Peter at
+35. Dan
+36. can you pl
+37. as
+38. add Philipp to th
+39. group ! 
+thanks
+40. philipp
+41. ffing
