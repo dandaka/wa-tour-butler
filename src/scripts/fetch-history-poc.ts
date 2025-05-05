@@ -3,7 +3,11 @@ import makeWASocket, {
   DisconnectReason, 
   useMultiFileAuthState, 
   fetchLatestBaileysVersion,
-  delay
+  delay,
+  downloadAndProcessHistorySyncNotification,
+  WAMessageKey,
+  getHistoryMsg,
+  proto
 } from 'baileys';
 import * as fs from 'fs';
 import P from 'pino';
@@ -71,45 +75,131 @@ async function startMessageHistoryPOC() {
       await saveCreds();
     }
 
-    // When history is received
+      // When history is received
     if(events['messaging-history.set']) {
       const { chats, contacts, messages, isLatest, progress, syncType } = events['messaging-history.set'];
       console.log(`Received history sync with ${messages.length} messages`);
       console.log(`Chat count: ${chats.length}, Contact count: ${contacts.length}`);
       console.log(`Is latest: ${isLatest}, Progress: ${progress}%, Type: ${syncType}`);
       
-      if(messages.length > 0) {
-        console.log('First 5 messages received:');
-        // Print the first 5 messages (or fewer if less than 5 available)
-        messages.slice(0, 5).forEach((msg, i) => {
-          console.log(`Message ${i+1}:`, JSON.stringify(msg, null, 2));
+      // Filter messages to only include those from the target group
+      const targetGroupMessages = messages.filter(msg => msg.key.remoteJid === TARGET_GROUP_ID);
+      console.log(`Filtered ${targetGroupMessages.length} messages from target group`);
+      
+      if(targetGroupMessages.length > 0) {
+        console.log('\n===== HISTORICAL MESSAGE CONTENTS FROM TARGET GROUP =====');
+        // Extract and print text content from filtered messages
+        targetGroupMessages.forEach((msg, i) => {
+          // Extract text content
+          let messageText = '';
+          if (msg.message?.conversation) {
+            messageText = msg.message.conversation;
+          } else if (msg.message?.extendedTextMessage?.text) {
+            messageText = msg.message.extendedTextMessage.text;
+          } else if (msg.message?.imageMessage?.caption) {
+            messageText = `[IMAGE] ${msg.message.imageMessage.caption}`;
+          } else if (msg.message?.videoMessage?.caption) {
+            messageText = `[VIDEO] ${msg.message.videoMessage.caption}`;
+          } else if (msg.message?.documentMessage) {
+            messageText = `[DOCUMENT] ${msg.message.documentMessage.fileName || 'Unknown file'}`;
+          } else if (msg.message?.audioMessage) {
+            messageText = `[AUDIO] Duration: ${msg.message.audioMessage.seconds || 'unknown'} seconds`;
+          } else if (msg.message?.stickerMessage) {
+            messageText = `[STICKER]`;
+          } else if (msg.message?.contactMessage) {
+            messageText = `[CONTACT] ${msg.message.contactMessage.displayName || 'Unknown contact'}`;
+          } else if (msg.message?.locationMessage) {
+            messageText = `[LOCATION] ${msg.message.locationMessage.name || ''}`;
+          } else {
+            messageText = `[OTHER MESSAGE TYPE]`;
+          }
+          
+          // Get timestamp as readable date
+          const timestamp = msg.messageTimestamp ? new Date(Number(msg.messageTimestamp) * 1000).toLocaleString() : 'Unknown time';
+          
+          // Get sender info
+          const isFromMe = msg.key.fromMe;
+          const sender = isFromMe ? 'You' : (msg.pushName || (msg.key.remoteJid ? msg.key.remoteJid.split('@')[0] : 'Unknown'));
+          
+          // Print formatted message
+          console.log(`[${timestamp}] ${sender}: ${messageText}`);
         });
+        console.log('================================================\n');
+      } else {
+        console.log('No historical messages found from the target group yet.');
       }
     }
 
-    // Handle messages upsert
+    // Handle messages upsert - only for history sync notifications
     if(events['messages.upsert']) {
       const upsert = events['messages.upsert'];
-      console.log('Messages upsert type:', upsert.type);
       
       if(upsert.type === 'notify') {
-        console.log(`Received ${upsert.messages.length} new messages`);
-        
         for(const msg of upsert.messages) {
-          console.log('Received message:', {
-            from: msg.key.remoteJid,
-            id: msg.key.id,
-            timestamp: msg.messageTimestamp,
-            content: msg.message
-          });
-          
-          // If this is a history sync notification, process it
-          if(msg.message?.protocolMessage?.type === 5) { // 5 is HISTORY_SYNC_NOTIFICATION
+          // Process history sync notifications
+          if(msg.message?.protocolMessage?.type === proto.Message.ProtocolMessage.Type.HISTORY_SYNC_NOTIFICATION) {
             console.log('Received history sync notification');
+            
+            try {
+              // Get history sync data
+              const historySyncNotification = getHistoryMsg(msg.message);
+              if (historySyncNotification) {
+                console.log('Processing history sync notification...');
+                
+                // Download and process the history sync
+                const { chats, contacts, messages } = await downloadAndProcessHistorySyncNotification(historySyncNotification, {});
+                
+                console.log(`Downloaded history: ${messages.length} messages, ${chats.length} chats, ${contacts.length} contacts`);
+                
+                // Filter only the messages from our target group
+                const targetGroupMessages = messages.filter(m => m.key.remoteJid === TARGET_GROUP_ID);
+                console.log(`Found ${targetGroupMessages.length} messages from target group in history sync`);
+                
+                if (targetGroupMessages.length > 0) {
+                  console.log('\n===== DOWNLOADED HISTORICAL MESSAGES =====');
+                  // Process and display target group messages
+                  targetGroupMessages.forEach((historyMsg) => {
+                    // Extract text content
+                    let messageText = '';
+                    if (historyMsg.message?.conversation) {
+                      messageText = historyMsg.message.conversation;
+                    } else if (historyMsg.message?.extendedTextMessage?.text) {
+                      messageText = historyMsg.message.extendedTextMessage.text;
+                    } else if (historyMsg.message?.imageMessage?.caption) {
+                      messageText = `[IMAGE] ${historyMsg.message.imageMessage.caption}`;
+                    } else if (historyMsg.message?.videoMessage?.caption) {
+                      messageText = `[VIDEO] ${historyMsg.message.videoMessage.caption}`;
+                    } else if (historyMsg.message?.documentMessage) {
+                      messageText = `[DOCUMENT] ${historyMsg.message.documentMessage.fileName || 'Unknown file'}`;
+                    } else if (historyMsg.message?.audioMessage) {
+                      messageText = `[AUDIO]`;
+                    } else if (historyMsg.message?.stickerMessage) {
+                      messageText = `[STICKER]`;
+                    } else {
+                      messageText = `[OTHER MESSAGE TYPE]`;
+                    }
+                    
+                    // Get timestamp
+                    const timestamp = historyMsg.messageTimestamp 
+                      ? new Date(Number(historyMsg.messageTimestamp) * 1000).toLocaleString() 
+                      : 'Unknown time';
+                    
+                    // Get sender info
+                    const isFromMe = historyMsg.key.fromMe;
+                    const sender = isFromMe ? 'You' : 'Group member';
+                    
+                    console.log(`[${timestamp}] ${sender}: ${messageText}`);
+                  });
+                  console.log('========================================\n');
+                }
+              }
+            } catch (error) {
+              console.error('Error processing history sync:', error);
+            }
+            
+            // Mark message as read to acknowledge
+            await sock.readMessages([msg.key]);
           }
-          
-          // Mark message as read to help trigger sync
-          await sock.readMessages([msg.key]);
         }
       }
     }
@@ -130,39 +220,67 @@ async function startMessageHistoryPOC() {
       await sock.sendPresenceUpdate('paused', TARGET_GROUP_ID);
       console.log('Sent presence updates to trigger notifications');
       
-      console.log('⚠️ OPEN WHATSAPP NOW! ⚠️');
+      console.log('\n⚠️ OPEN WHATSAPP NOW ON YOUR PHONE! ⚠️');
       console.log('Look for "syncing with" notification');
+      console.log('Keep WhatsApp open even after "syncing stopped" notification appears\n');
       
       // Wait a moment for the user to open WhatsApp
       await delay(5000);
       
-      // Try to fetch message history (50 is max allowed by WhatsApp)
-      const messageCount = 50;
-      console.log(`Attempting to fetch the last ${messageCount} messages...`);
+      // Try multiple history fetch approaches to maximize chances of success
+      console.log('Attempting multiple approaches to fetch history...');
       
-      // The requestId we get back from fetchMessageHistory
-      // Create an empty message key for the target group
-      const emptyMessageKey = {
+      // Approach 1: Using fetchMessageHistory with empty key
+      const messageCount = 50;
+      console.log(`Approach 1: Fetching last ${messageCount} messages with empty key...`);
+      
+      // Create message key for the target group
+      const groupMessageKey: WAMessageKey = {
         remoteJid: TARGET_GROUP_ID,
         id: '',
         fromMe: false
       };
       
-      const requestId = await sock.fetchMessageHistory(
+      const requestId1 = await sock.fetchMessageHistory(
         messageCount,
-        emptyMessageKey,
+        groupMessageKey,
         0  // start from the beginning (timestamp 0)
       );
+      console.log('Request 1 sent with ID:', requestId1);
       
-      console.log('History request sent with ID:', requestId);
-      console.log('Waiting for messages to sync...');
+      // Wait a bit before trying the next approach
+      await delay(2000);
+      
+      // Approach 2: Using readMessages to trigger a sync
+      console.log('Approach 2: Using readMessages to trigger sync...');
+      await sock.readMessages([groupMessageKey]);
+      
+      // Wait a bit before trying the next approach
+      await delay(2000);
+      
+      // Approach 3: Fetch with a timestamp hint
+      console.log('Approach 3: Fetching with timestamp hint...');
+      // Use current time as a hint - 30 days ago (in seconds)
+      const timestamp = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60);
+      const requestId3 = await sock.fetchMessageHistory(
+        messageCount,
+        groupMessageKey,
+        timestamp
+      );
+      console.log('Request 3 sent with ID:', requestId3);
+      
+      console.log('\nWaiting for messages to sync...');
       console.log('If you see "syncing has stopped" notification:');
-      console.log('1. Open WhatsApp again and keep it open');
-      console.log('2. Look for messages to start appearing');
+      console.log('1. This is normal - keep WhatsApp open');
+      console.log('2. Historical messages should appear in the logs\n');
       
-      // Wait for some time to allow the sync to complete
-      await delay(30000);
-      console.log('Sync waiting period complete. Check logs above for any received messages.');
+      // Wait for a longer time to allow the sync to complete
+      console.log('Waiting 45 seconds for sync to complete...');
+      for (let i = 1; i <= 9; i++) {
+        await delay(5000);
+        console.log(`Still waiting... (${i*5}/45 seconds elapsed)`);
+      }
+      console.log('Sync waiting period complete. Check logs above for historical messages.');
     } catch (error) {
       console.error('Error during message fetch:', error);
     }
