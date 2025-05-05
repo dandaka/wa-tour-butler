@@ -13,16 +13,10 @@
     "parse-signups": "ts-node src/scripts/process-signups.ts 120363028202164779@g.us ./signup-results.md 1746467935",
     "fetch-groups": "ts-node src/scripts/fetchGroupChats.ts",
     "whatsapp-login": "ts-node src/scripts/whatsappLogin.ts",
-    "sync-messages": "ts-node src/scripts/syncGroupMessages.ts",
-    "sync-minimal": "ts-node src/scripts/sync-minimal.ts",
-    "sync-minimal-v2": "ts-node src/scripts/sync-minimal-v2.ts",
-    "sync-minimal-v3": "ts-node src/scripts/sync-minimal-v3.ts",
-    "fetch-history-poc": "ts-node src/scripts/fetch-history-poc.ts",
-    "fetch-history-fixed": "ts-node src/scripts/fetch-history-poc-fixed.ts",
-    "fetch-history-simple": "ts-node src/scripts/fetch-history-simple.ts",
+    "sync": "ts-node src/scripts/syncGroupMessages.ts",
+    "fetch-history": "ts-node src/scripts/fetch-history-poc-fixed.ts",
     "store-messages": "ts-node src/scripts/store-messages.ts",
-    "view-db": "ts-node src/scripts/view-db-messages.ts",
-    "view-messages": "ts-node src/scripts/viewGroupMessages.ts"
+    "view": "ts-node src/scripts/view-db-messages.ts"
   },
   "keywords": [
     "whatsapp",
