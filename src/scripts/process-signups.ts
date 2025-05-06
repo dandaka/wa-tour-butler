@@ -4,7 +4,7 @@ import csv from 'csv-parser';
 
 // Import utilities and types
 import { parseSignupMessage } from '../utils/signup-parser';
-import { processSignupsWithTeams, SignupWithTeam } from '../utils/team-numbering';
+import { SignupWithTeam } from '../utils/team-numbering'; // Keep for type compatibility
 import { WhatsAppMessage } from '../types/messages';
 import { ParsedSignup, GroupInfo, ProcessingResult } from '../types/signups';
 
@@ -19,6 +19,7 @@ import { normalizeWhitespace, removeEmojiAndReactions } from '../utils/string';
 
 // Import core domain modules
 import { findRegistrationMessage, findPotentialRegistrationMessages } from '../core/registration';
+import { assignTeamNumbers, getFormattedPlayerList, TeamSignup } from '../core/teams';
 
 type DatabaseType = ReturnType<typeof BetterSqlite3>;
 
@@ -248,8 +249,8 @@ export function processMessages(messages: DatabaseMessage[], groupInfo: GroupInf
     }
   }
   
-  // Process team numbering after all signups are collected
-  result.processedSignups = processSignupsWithTeams(result.signups);
+  // Process signups to add team numbers and format names
+  result.processedSignups = assignTeamNumbers(result.signups);
   
   return result;
 }
