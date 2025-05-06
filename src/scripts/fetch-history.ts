@@ -23,7 +23,7 @@ const logger = P({
 });
 
 // Auth state path - using the project's standard auth location
-const AUTH_FOLDER_PATH = path.join(process.cwd(), 'auth_info_baileys');
+const AUTH_FOLDER_PATH = path.join(process.cwd(), 'session');
 
 // Script execution timeout (will force exit after this time)
 const EXIT_TIMEOUT_MS = 10000; // 10 seconds
