@@ -137,7 +137,8 @@ export function processPlayerStatus(signups: ParsedSignup[]): {
  * Stage 4: Assign team numbers 
  */
 export function processTeamAssignments(signups: ParsedSignup[]) {
-  return assignTeamNumbers(signups);
+  // Pass options to ensure team numbers are displayed for all players, including individuals
+  return assignTeamNumbers(signups, { numberIndividuals: true });
 }
 
 /**

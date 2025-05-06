@@ -167,4 +167,73 @@ describe('Markdown Formatter', () => {
     expect(output).toContain('Player11');
     expect(output).toContain('Player12');
   });
+
+  it('should display team numbers for all players in player lists', () => {
+    const now = Date.now() / 1000;
+    
+    // Create signups including both individual players and teams
+    const result: ProcessingResult = {
+      signups: [
+        createSignup('Im in', ['Alex'], now - 3600, '111', undefined, 'IN', false),
+        createSignup('I and my partner', ['Bob', 'Charlie'], now - 3000, '222', undefined, 'IN', true),
+        createSignup('Just me', ['David'], now - 2500, '333', undefined, 'IN', false),
+        createSignup('Our team', ['Eve', 'Frank'], now - 2000, '444', undefined, 'IN', true)
+      ],
+      finalPlayerList: ['Alex (1)', 'Bob (2)', 'Charlie (2)', 'David (3)', 'Eve (4)', 'Frank (4)'],
+      outPlayersByTimeSlot: {},
+      processedSignups: [
+        // Include processed signups with team numbers assigned
+        {
+          originalMessage: 'Im in',
+          names: ['Alex'],
+          timestamp: now - 3600,
+          sender: '111',
+          status: 'IN',
+          isTeam: false,
+          formattedNames: ['Alex (1)'],
+          teamNumber: 1
+        },
+        {
+          originalMessage: 'I and my partner',
+          names: ['Bob', 'Charlie'],
+          timestamp: now - 3000,
+          sender: '222',
+          status: 'IN',
+          isTeam: true,
+          formattedNames: ['Bob (2)', 'Charlie (2)'],
+          teamNumber: 2
+        },
+        {
+          originalMessage: 'Just me',
+          names: ['David'],
+          timestamp: now - 2500,
+          sender: '333',
+          status: 'IN',
+          isTeam: false,
+          formattedNames: ['David (3)'],
+          teamNumber: 3
+        },
+        {
+          originalMessage: 'Our team',
+          names: ['Eve', 'Frank'],
+          timestamp: now - 2000,
+          sender: '444',
+          status: 'IN',
+          isTeam: true,
+          formattedNames: ['Eve (4)', 'Frank (4)'],
+          teamNumber: 4
+        }
+      ]
+    };
+
+    const output = formatOutputAsMarkdown(result, groupInfo);
+    
+    // Check that team numbers appear in the player list
+    expect(output).toContain('1. Alex (1)');
+    expect(output).toContain('2. Bob (2)');
+    expect(output).toContain('3. Charlie (2)');
+    expect(output).toContain('4. David (3)');
+    expect(output).toContain('5. Eve (4)');
+    expect(output).toContain('6. Frank (4)');
+  });
 });

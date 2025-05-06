@@ -47,19 +47,22 @@ export function formatOutputAsMarkdown(
   // Track player info for sorting (timestamp and team number)
   const playerInfo = new Map<string, { timestamp: number, teamNumber?: number }>();
   
+  // Use processedSignups where available since they contain team number information
+  const signupsToUse = result.processedSignups || result.signups;
+  
   // Process all signups for display
-  result.signups.forEach(signup => {
-    if (signup.status === 'OUT') {
-      // Skip OUT signups in the player list (they're handled by outPlayersByTimeSlot)
-      return;
-    }
-    
+  signupsToUse.filter(signup => signup.status !== 'OUT').forEach(signup => {
     // If time is not specified or empty, put in unspecified time slot
     if (!signup.time) {
       // Use formatted names with team numbers if available
-      const namesToAdd: string[] = 'formattedNames' in signup ? 
+      // The formattedNames property should include the team number in the format "Name (team#)"
+      const namesToAdd: string[] = 'formattedNames' in signup && (signup as SignupWithTeam).formattedNames.length > 0 ? 
         (signup as SignupWithTeam).formattedNames : 
-        signup.names;
+        // Fallback to adding team numbers manually if needed
+        signup.names.map(name => {
+          const teamNumber = (signup as any).teamNumber;
+          return teamNumber ? `${name} (${teamNumber})` : name;
+        });
         
       namesToAdd.forEach((name: string) => {
         // Store player info with timestamp and team number
@@ -81,9 +84,14 @@ export function formatOutputAsMarkdown(
       }
       
       // Use formatted names with team numbers if available
-      const namesToAdd: string[] = 'formattedNames' in signup ? 
+      // The formattedNames property should include the team number in the format "Name (team#)"
+      const namesToAdd: string[] = 'formattedNames' in signup && (signup as SignupWithTeam).formattedNames.length > 0 ? 
         (signup as SignupWithTeam).formattedNames : 
-        signup.names;
+        // Fallback to adding team numbers manually if needed
+        signup.names.map(name => {
+          const teamNumber = (signup as any).teamNumber;
+          return teamNumber ? `${name} (${teamNumber})` : name;
+        });
         
       namesToAdd.forEach((name: string) => {
         // Store player info with timestamp and team number
