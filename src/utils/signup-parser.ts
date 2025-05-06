@@ -36,16 +36,20 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   // Get the original content for reference
   const originalContent = message.content.trim();
   
-  // SPECIAL CASE: "In com Eric" test cases - direct handler for the specific test pattern
-  // This specifically addresses the test cases in src/utils/signup-parser.test.ts lines 565-585
-  if (originalContent.match(/^(?:\[.*?\]\s*)?in\s+com\s+eric\s*(?:\[.*?\])?$/i) || 
-      originalContent.toLowerCase().includes('in com eric')) {
-    // Extract just the phone number part without the suffix
+  // Handle "in com [Name]" pattern (Portuguese for "in with [Name]")
+  // This matches messages like "in com João" or "[reaction] in com Eric"
+  const inComPattern = /^(?:\[.*?\]\s*)?in\s+com\s+([A-Za-z\u00C0-\u017F\s'\.\-]+)(?:\s*(?:\[.*?\])?)?$/i;
+  const inComMatch = originalContent.match(inComPattern);
+  
+  if (inComMatch) {
+    // Extract the partner name from the match
+    const partnerName = inComMatch[1].trim();
+    // Extract the sender's phone/name
     const phoneOnly = message.sender.replace('@s.whatsapp.net', '');
     
     return {
       originalMessage: originalContent,
-      names: [phoneOnly, 'Eric'], // Hard-code the expected test values
+      names: [phoneOnly, partnerName], // Use the actual captured name
       time: undefined,
       status: 'IN',
       timestamp: message.timestamp,
