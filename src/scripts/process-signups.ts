@@ -17,6 +17,9 @@ import { connectToDatabase, getMessagesFromGroup, DatabaseMessage } from '../uti
 import { getGroupInfo, writeToFile, createOutputFilePath, createLogFilePath } from '../utils/file';
 import { normalizeWhitespace, removeEmojiAndReactions } from '../utils/string';
 
+// Import core domain modules
+import { findRegistrationMessage, findPotentialRegistrationMessages } from '../core/registration';
+
 type DatabaseType = ReturnType<typeof BetterSqlite3>;
 
 // Using centralized constants from constants.ts
@@ -94,30 +97,10 @@ export function processMessages(messages: DatabaseMessage[], groupInfo: GroupInf
     outPlayersByTimeSlot: {}
   };
   
-  // Find the most recent registration open message from the admin
-  let registrationStarted = false;
-  let registrationTimestamp = 0;
-  
   console.log(`Looking for admin ${groupInfo.admin} messages related to registration`);
   
-  // Check for any messages that look like registration openings more flexibly
-  const potentialRegistrationMessages = messages
-    .filter(m => {
-      // Handle WhatsApp formatting of phone numbers with @s.whatsapp.net suffix
-      return m.sender === groupInfo.admin || m.sender === `${groupInfo.admin}@s.whatsapp.net`;
-    })
-    .filter(m => {
-      const lowerContent = m.content.toLowerCase();
-      // Match if any registration keyword appears
-      return REGISTRATION_KEYWORDS.some(keyword => 
-        lowerContent.includes(keyword.toLowerCase())
-      ) ||
-      // Or check for patterns that suggest a registration opening
-      (lowerContent.includes('h') && 
-       (lowerContent.match(/\d+[h:]\d+/) || lowerContent.match(/\d+h/)) && 
-       (lowerContent.includes('h00') || lowerContent.includes('h30')))
-    });
-  
+  // Use the extracted function to get potential registration messages for debugging
+  const potentialRegistrationMessages = findPotentialRegistrationMessages(messages, groupInfo.admin);
   console.log(`Found ${potentialRegistrationMessages.length} potential registration messages`);
   
   // For debugging, show the potential registration messages
@@ -129,38 +112,19 @@ export function processMessages(messages: DatabaseMessage[], groupInfo: GroupInf
     });
   }
   
-  // Find the most recent messages first (starting from the end)
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    
-    // Be more flexible for registration detection
-    const isFromAdmin = message.sender === groupInfo.admin || 
-                     message.sender === `${groupInfo.admin}@s.whatsapp.net`;
-    const lowerContent = message.content.toLowerCase();
-    
-    // Match any registration keyword
-    const containsRegistrationKeyword = REGISTRATION_KEYWORDS.some(keyword => 
-      lowerContent.includes(keyword.toLowerCase())
-    );
-    
-    // Check for time slots pattern
-    const containsTimeSlots = /\d+[h:]\d+|\d+h/.test(message.content);
-    
-    // Special case for admin messages with time patterns typical of registration opening
-    const looksLikeRegistration = isFromAdmin && 
-      containsTimeSlots && 
-      (message.content.includes('15h00') || message.content.includes('15:00') || 
-       message.content.includes('17h00') || message.content.includes('17:00'));
-    
-    if (isFromAdmin && (containsRegistrationKeyword || looksLikeRegistration)) {
-      registrationStarted = true;
-      registrationTimestamp = message.timestamp;
-      result.registrationOpenMessage = message;
-      console.log(`Found registration start message at ${new Date(message.timestamp * 1000).toLocaleString()}:`);
-      console.log(`Content: "${message.content}"`);
-      // Break after finding the most recent registration message
-      break;
-    }
+  // Use the extracted findRegistrationMessage function to find registration message
+  let registrationStarted = false;
+  let registrationTimestamp = 0;
+  
+  // Find registration message using the extracted module
+  const registrationMessage = findRegistrationMessage(messages, groupInfo.admin);
+  
+  if (registrationMessage) {
+    registrationStarted = true;
+    registrationTimestamp = registrationMessage.timestamp;
+    result.registrationOpenMessage = registrationMessage;
+    console.log(`Found registration start message at ${new Date(registrationMessage.timestamp * 1000).toLocaleString()}:`);
+    console.log(`Content: "${registrationMessage.content}"`);
   }
   
   // If forceRegistrationTimestamp is provided, use it instead
