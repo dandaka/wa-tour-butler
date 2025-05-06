@@ -367,6 +367,9 @@ export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): st
   const timeSlots: Record<string, string[]> = {};
   const unspecifiedTimeSlot: string[] = [];
   
+  // Track player information for sorting later
+  const playerInfo = new Map<string, { timestamp: number, teamNumber?: number }>();
+  
   // Use processed signups with team numbers if available, otherwise fall back to original signups
   const signupsToUse = result.processedSignups || result.signups;
   
@@ -380,6 +383,14 @@ export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): st
         signup.names;
         
       namesToAdd.forEach((name: string) => {
+        // Store player info with timestamp and team number
+        const teamNumberMatch = name.match(/\((\d+)\)$/);
+        const teamNumber = teamNumberMatch ? parseInt(teamNumberMatch[1]) : undefined;
+        playerInfo.set(name, {
+          timestamp: signup.timestamp,
+          teamNumber
+        });
+        
         if (!unspecifiedTimeSlot.includes(name)) {
           unspecifiedTimeSlot.push(name);
         }
@@ -396,6 +407,14 @@ export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): st
         signup.names;
         
       namesToAdd.forEach((name: string) => {
+        // Store player info with timestamp and team number
+        const teamNumberMatch = name.match(/\((\d+)\)$/);
+        const teamNumber = teamNumberMatch ? parseInt(teamNumberMatch[1]) : undefined;
+        playerInfo.set(name, {
+          timestamp: signup.timestamp,
+          teamNumber
+        });
+        
         // Check if this player has opted out from this time slot
         const playerOptedOut = result.outPlayersByTimeSlot[timeKey] && 
                               result.outPlayersByTimeSlot[timeKey].includes(name);
@@ -441,25 +460,22 @@ export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): st
     if (activePlayers.length === 0) {
       output += `No active players for this time slot.\n`;
     } else {
-      // Sort the player list - this will group team members together by their team numbers
+      // Sort the player list - respecting chronological order while keeping team members together
       const sortedPlayers = activePlayers.sort((a, b) => {
-        // Extract team numbers if present
-        const aMatch = a.match(/\((\d+)\)$/); 
-        const bMatch = b.match(/\((\d+)\)$/);
+        const aInfo = playerInfo.get(a);
+        const bInfo = playerInfo.get(b);
         
-        // If both have team numbers, sort by team number first
-        if (aMatch && bMatch) {
-          const aTeam = parseInt(aMatch[1]);
-          const bTeam = parseInt(bMatch[1]);
-          if (aTeam !== bTeam) return aTeam - bTeam;
+        if (!aInfo || !bInfo) {
+          return a.localeCompare(b); // Fallback if info not found
         }
         
-        // If only one has a team number, put teams first
-        if (aMatch && !bMatch) return -1;
-        if (!aMatch && bMatch) return 1;
+        // If both players are on the same team, keep them together
+        if (aInfo.teamNumber && bInfo.teamNumber && aInfo.teamNumber === bInfo.teamNumber) {
+          return a.localeCompare(b); // Sort teammates alphabetically
+        }
         
-        // Otherwise sort alphabetically
-        return a.localeCompare(b);
+        // Sort by signup timestamp (chronological order)
+        return aInfo.timestamp - bInfo.timestamp;
       });
       
       sortedPlayers.forEach((player, index) => {
@@ -475,23 +491,20 @@ export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): st
     
     // Sort unspecified time slot players the same way
     const sortedPlayers = unspecifiedTimeSlot.sort((a, b) => {
-      // Extract team numbers if present
-      const aMatch = a.match(/\((\d+)\)$/); 
-      const bMatch = b.match(/\((\d+)\)$/);
+      const aInfo = playerInfo.get(a);
+      const bInfo = playerInfo.get(b);
       
-      // If both have team numbers, sort by team number first
-      if (aMatch && bMatch) {
-        const aTeam = parseInt(aMatch[1]);
-        const bTeam = parseInt(bMatch[1]);
-        if (aTeam !== bTeam) return aTeam - bTeam;
+      if (!aInfo || !bInfo) {
+        return a.localeCompare(b); // Fallback if info not found
       }
       
-      // If only one has a team number, put teams first
-      if (aMatch && !bMatch) return -1;
-      if (!aMatch && bMatch) return 1;
+      // If both players are on the same team, keep them together
+      if (aInfo.teamNumber && bInfo.teamNumber && aInfo.teamNumber === bInfo.teamNumber) {
+        return a.localeCompare(b); // Sort teammates alphabetically
+      }
       
-      // Otherwise sort alphabetically
-      return a.localeCompare(b);
+      // Sort by signup timestamp (chronological order)
+      return aInfo.timestamp - bInfo.timestamp;
     });
     
     // Handle substitutes if we have maxTeams defined and more players than slots
