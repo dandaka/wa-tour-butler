@@ -5,7 +5,7 @@
  * Teams (signups with 2+ players) are assigned sequential numbers per time slot.
  */
 
-import { ParsedSignup } from './signup-parser';
+import { ParsedSignup } from '../types/signups';
 
 /**
  * Extended interface with formatted names including team numbers
