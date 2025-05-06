@@ -13,7 +13,6 @@
     "fetch-groups": "ts-node src/scripts/fetchGroupChats.ts",
     "fetch-group-ids": "ts-node src/scripts/fetchGroupIds.ts",
     "whatsapp-login": "ts-node src/scripts/whatsappLogin.ts",
-    "sync": "ts-node src/scripts/syncGroupMessages.ts",
     "fetch-history": "ts-node src/scripts/fetch-history.ts",
     "monitor-messages": "ts-node src/scripts/monitor-messages.ts",
     "view": "ts-node src/scripts/view-db-messages.ts"
