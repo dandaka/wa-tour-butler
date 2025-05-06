@@ -1,21 +1,23 @@
 import BetterSqlite3 from 'better-sqlite3';
 import fs from 'fs';
-import path from 'path';
 import csv from 'csv-parser';
+
+// Import utilities and types
 import { parseSignupMessage } from '../utils/signup-parser';
 import { processSignupsWithTeams, SignupWithTeam } from '../utils/team-numbering';
 import { WhatsAppMessage } from '../types/messages';
 import { ParsedSignup, GroupInfo, ProcessingResult } from '../types/signups';
-import { PROJECT_ROOT, DB_PATH, GROUPS_CSV_PATH, OUTPUT_DIR, REGISTRATION_KEYWORDS } from '../constants';
+
+// Import constants
+import { REGISTRATION_KEYWORDS, DB_PATH, GROUPS_CSV_PATH } from '../constants';
+
+// Import utility modules
+import { formatDateYYYYMMDDHHMMSS, formatTimeHHMMSS, formatTimestamp, containsTimePattern } from '../utils/date';
+import { connectToDatabase, getMessagesFromGroup, DatabaseMessage } from '../utils/database';
+import { getGroupInfo, writeToFile, createOutputFilePath, createLogFilePath } from '../utils/file';
+import { normalizeWhitespace, removeEmojiAndReactions } from '../utils/string';
 
 type DatabaseType = ReturnType<typeof BetterSqlite3>;
-
-// Local types
-interface DatabaseMessage extends WhatsAppMessage {
-  id: string;
-  chat_id: string;
-  is_from_me: number;
-}
 
 // Using centralized constants from constants.ts
 
@@ -23,11 +25,11 @@ interface DatabaseMessage extends WhatsAppMessage {
 async function processSignups(groupId: string, outputPath?: string, forceRegistrationTimestamp?: number) {
   console.log(`Processing signups for group ${groupId}...`);
   
-  // Connect to database
-  const db = new BetterSqlite3(DB_PATH);
+  // Connect to database using utility function
+  const db = connectToDatabase();
   
   try {
-    // 1. Get group info from CSV
+    // 1. Get group info from CSV using utility function
     const groupInfo = await getGroupInfo(groupId);
     if (!groupInfo) {
       throw new Error(`Group ID ${groupId} not found in ${GROUPS_CSV_PATH}`);
@@ -35,7 +37,7 @@ async function processSignups(groupId: string, outputPath?: string, forceRegistr
     
     console.log(`Found group: ${groupInfo.name}`);
     
-    // 2. Get messages from this group
+    // 2. Get messages from this group using utility function
     const messages = getMessagesFromGroup(db, groupId);
     console.log(`Found ${messages.length} messages in this group`);
     
@@ -67,7 +69,8 @@ async function processSignups(groupId: string, outputPath?: string, forceRegistr
     const logOutput = formatOutput(result, groupInfo);
     
     if (outputPath) {
-      fs.writeFileSync(outputPath, logOutput);
+      // Use utility function to write the file, ensuring directory exists
+      writeToFile(outputPath, logOutput);
       console.log(`Results written to ${outputPath}`);
     } else {
       console.log(logOutput);
@@ -80,49 +83,7 @@ async function processSignups(groupId: string, outputPath?: string, forceRegistr
   }
 }
 
-// Get group info from CSV file
-async function getGroupInfo(groupId: string): Promise<GroupInfo | null> {
-  return new Promise((resolve) => {
-    const results: GroupInfo[] = [];
-    
-    fs.createReadStream(GROUPS_CSV_PATH)
-      .pipe(csv())
-      .on('data', (data: any) => {
-        // Print raw CSV data for debugging
-        console.log('Raw CSV row:', data);
-        
-        // Adjust for potential column name issues
-        const groupInfo: GroupInfo = {
-          id: data.ID || data.id,
-          name: data.Name || data.name,
-          admin: data.Admin || data.admin,
-          // Handle missing or empty fields
-          tournamentTime: (data.TournamentTime || data.tournamentTime || '').trim(),
-          signupStartTime: (data.SignupStartTime || data.signupStartTime || '').trim(),
-          maxTeams: parseInt(data.MaxTeams || data.maxTeams || '0')
-        };
-        
-        results.push(groupInfo);
-        console.log('Parsed group info:', groupInfo);
-      })
-      .on('end', () => {
-        const group = results.find(g => g.id === groupId);
-        resolve(group || null);
-      });
-  });
-}
-
-// Get messages from the database for a specific group
-function getMessagesFromGroup(db: DatabaseType, groupId: string): DatabaseMessage[] {
-  const query = `
-    SELECT id, chat_id, sender, timestamp, content, is_from_me
-    FROM messages
-    WHERE chat_id = ?
-    ORDER BY timestamp ASC
-  `;
-  
-  return db.prepare(query).all(groupId) as DatabaseMessage[];
-}
+// Group info and database functions are now imported from '../utils/file' and '../utils/database'
 
 // Process messages to extract signup information
 export function processMessages(messages: DatabaseMessage[], groupInfo: GroupInfo, forceRegistrationTimestamp?: number): ProcessingResult {
@@ -329,26 +290,7 @@ export function processMessages(messages: DatabaseMessage[], groupInfo: GroupInf
   return result;
 }
 
-// Helper function to format date as YYYY-MM-DD HH:MM:SS
-function formatDateYYYYMMDDHHMMSS(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-  
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-}
-
-// Helper function to format time as HH:MM:SS
-function formatTimeHHMMSS(date: Date): string {
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-  
-  return `${hours}:${minutes}:${seconds}`;
-}
+// Date formatting functions are now imported from '../utils/date'
 
 // Format the output for logging
 export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): string {
