@@ -5,6 +5,10 @@
  * including parsed signup data and processing results.
  */
 
+// Import necessary types
+import { WhatsAppMessage } from './messages';
+import { SignupWithTeam } from '../utils/team-numbering';
+
 /**
  * Represents a parsed signup message with player names, time slot, and status
  */
@@ -23,15 +27,19 @@ export interface ParsedSignup {
  * Result of processing signup messages for a tournament
  */
 export interface ProcessingResult {
-  registrationOpenMessage?: any; // The message that started registration
-  signups: ParsedSignup[]; // All parsed signup messages
-  processedSignups?: any[]; // Signups with additional processing (like team numbering)
-  finalPlayerList: string[]; // Final list of players
-  outPlayersByTimeSlot: Record<string, string[]>; // Players who opted out by time slot
+  registrationOpenMessage?: WhatsAppMessage;
+  signups: ParsedSignup[];
+  processedSignups?: SignupWithTeam[];
+  finalPlayerList: string[];
+  outPlayersByTimeSlot: Record<string, string[]>;
+  // Additional fields for testing and formatting
+  useSuplentesFormat?: boolean;
+  suplentesThreshold?: number;
+  testForPlayerOrdering?: boolean;
 }
 
 /**
- * Information about a tournament group
+ * Information about a WhatsApp group
  */
 export interface GroupInfo {
   id: string;

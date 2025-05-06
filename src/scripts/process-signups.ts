@@ -21,73 +21,92 @@ import { normalizeWhitespace, removeEmojiAndReactions } from '../utils/string';
 import { findRegistrationMessage, findPotentialRegistrationMessages } from '../core/registration';
 import { assignTeamNumbers, getFormattedPlayerList, TeamSignup } from '../core/teams';
 
+// Import formatters
+import { formatOutputAsMarkdown } from '../formatters/markdown-formatter';
+
 type DatabaseType = ReturnType<typeof BetterSqlite3>;
 
-// Using centralized constants from constants.ts
-
-// Main function
-async function processSignups(groupId: string, outputPath?: string, forceRegistrationTimestamp?: number) {
-  console.log(`Processing signups for group ${groupId}...`);
+/**
+ * Process signup messages and format the output
+ *
+ * @param groupId WhatsApp group ID
+ * @param outputPath Path to write the output
+ * @param forceRegistrationTimestamp Optional timestamp to force as registration start
+ * @param verbose Whether to log verbose output
+ * @returns Processing result
+ */
+async function processSignups(
+  groupId: string,
+  outputPath?: string,
+  forceRegistrationTimestamp?: number,
+  verbose: boolean = false
+): Promise<ProcessingResult | undefined> {
+  console.log(`Processing signups for group ${groupId}`);
   
-  // Connect to database using utility function
+  // Get group info
+  const groupInfo = await getGroupInfo(groupId);
+  if (!groupInfo) {
+    console.error(`Group ${groupId} not found in groups.csv`);
+    return undefined;
+  }
+  
+  console.log(`Group info: ${JSON.stringify(groupInfo)}`);
+  
+  // Connect to the database
   const db = connectToDatabase();
   
-  try {
-    // 1. Get group info from CSV using utility function
-    const groupInfo = await getGroupInfo(groupId);
-    if (!groupInfo) {
-      throw new Error(`Group ID ${groupId} not found in ${GROUPS_CSV_PATH}`);
-    }
-    
-    console.log(`Found group: ${groupInfo.name}`);
-    
-    // 2. Get messages from this group using utility function
-    const messages = getMessagesFromGroup(db, groupId);
-    console.log(`Found ${messages.length} messages in this group`);
-    
-    // Log all messages from +351 966 314 427 regardless of registration timestamp
-    console.log('\n\u2728 MESSAGES FROM +351 966 314 427:');
-    const messagesFromNumber = messages.filter(m => m.sender.includes('351966314427'));
-    messagesFromNumber.forEach(m => {
-      const date = new Date(m.timestamp * 1000);
-      console.log(`[${formatDateYYYYMMDDHHMMSS(date)}] ${m.content}`);
-    });
-    console.log('\n');
-    
-    // Log all messages containing 'in com eric' regardless of brackets or registration timestamp
-    console.log('\n\ud83d\udd0e MESSAGES CONTAINING "IN COM ERIC":');
-    const inComEricMessages = messages.filter(m => 
-      m.content.toLowerCase().includes('in com') && 
-      m.content.toLowerCase().includes('eric')
-    );
-    inComEricMessages.forEach(m => {
-      const date = new Date(m.timestamp * 1000);
-      console.log(`[${date.toLocaleString()}] From: ${m.sender} | Content: ${m.content}`);
-    });
-    console.log('\n');
+  // Get all messages for this group
+  const messages = getMessagesFromGroup(db, groupId);
+  console.log(`Found ${messages.length} messages for group ${groupId}`);
+  
+  // Log all messages from +351 966 314 427 regardless of registration timestamp
+  console.log('\n\u2728 MESSAGES FROM +351 966 314 427:');
+  const messagesFromNumber = messages.filter(m => m.sender.includes('351966314427'));
+  messagesFromNumber.forEach(m => {
+    const date = new Date(m.timestamp * 1000);
+    console.log(`[${formatDateYYYYMMDDHHMMSS(date)}] ${m.content}`);
+  });
+  console.log('\n');
+  
+  // Log all messages containing 'in com eric' regardless of brackets or registration timestamp
+  console.log('\n\ud83d\udd0e MESSAGES CONTAINING "IN COM ERIC":');
+  const inComEricMessages = messages.filter(m => 
+    m.content.toLowerCase().includes('in com') && 
+    m.content.toLowerCase().includes('eric')
+  );
+  inComEricMessages.forEach(m => {
+    const date = new Date(m.timestamp * 1000);
+    console.log(`[${date.toLocaleString()}] From: ${m.sender} | Content: ${m.content}`);
+  });
+  console.log('\n');
 
-    // 3. Process messages
-    const result = processMessages(messages, groupInfo, forceRegistrationTimestamp);
+  // Process messages to extract signups
+  const result = processMessages(messages, groupInfo, forceRegistrationTimestamp);
+  
+  // Format the output
+  const output = formatOutputAsMarkdown(result, groupInfo);
+  
+  // Write the output to a file if requested
+  if (outputPath) {
+    writeToFile(outputPath, output);
+    console.log(`Output written to ${outputPath}`);
+  } else {
+    // Create default output file path
+    const defaultOutputPath = createOutputFilePath(groupInfo.name);
+    writeToFile(defaultOutputPath, output);
+    console.log(`Output written to ${defaultOutputPath}`);
     
-    // 4. Output results
-    const logOutput = formatOutput(result, groupInfo);
-    
-    if (outputPath) {
-      // Use utility function to write the file, ensuring directory exists
-      writeToFile(outputPath, logOutput);
-      console.log(`Results written to ${outputPath}`);
-    } else {
-      console.log(logOutput);
-    }
-    
-    return result;
-  } finally {
-    // Close database connection
-    db.close();
+    // Create log file
+    const logPath = createLogFilePath(groupInfo.name);
+    writeToFile(logPath, `Processed at ${new Date().toISOString()}\nFound ${result.signups.length} signups\n`);
+    console.log(`Log written to ${logPath}`);
   }
+  
+  // Close the database connection
+  db.close();
+  
+  return result;
 }
-
-// Group info and database functions are now imported from '../utils/file' and '../utils/database'
 
 // Process messages to extract signup information
 export function processMessages(messages: DatabaseMessage[], groupInfo: GroupInfo, forceRegistrationTimestamp?: number): ProcessingResult {
@@ -255,235 +274,16 @@ export function processMessages(messages: DatabaseMessage[], groupInfo: GroupInf
   return result;
 }
 
-// Date formatting functions are now imported from '../utils/date'
-
-// Format the output for logging
+/**
+ * Format processing result into a markdown document
+ * 
+ * @param result Processing result from signup processing
+ * @param groupInfo Group information
+ * @returns Formatted markdown string
+ */
 export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): string {
-  let output = `# Signup Processing for ${groupInfo.name}\n\n`;
-  
-  // Registration info
-  if (result.registrationOpenMessage) {
-    const date = new Date(result.registrationOpenMessage.timestamp * 1000);
-    output += `## Registration Information\n`;
-    output += `- Registration opened: ${formatDateYYYYMMDDHHMMSS(date)}\n`;
-    output += `- Admin: ${groupInfo.admin}\n`;
-    output += `- Original message: "${result.registrationOpenMessage.content}"\n\n`;
-  }
-  
-  // Summary by time slot
-  const timeSlots: Record<string, string[]> = {};
-  const unspecifiedTimeSlot: string[] = [];
-  
-  // Track player information for sorting later
-  const playerInfo = new Map<string, { timestamp: number, teamNumber?: number }>();
-  
-  // Use processed signups with team numbers if available, otherwise fall back to original signups
-  const signupsToUse = result.processedSignups || result.signups;
-  
-  signupsToUse.forEach(signup => {
-    if (signup.status !== 'IN') return; // Skip OUT signups
-    
-    if (!signup.time) {
-      // Use formatted names with team numbers if available
-      const namesToAdd: string[] = 'formattedNames' in signup ? 
-        (signup as SignupWithTeam).formattedNames : 
-        signup.names;
-        
-      namesToAdd.forEach((name: string) => {
-        // Store player info with timestamp and team number
-        const teamNumberMatch = name.match(/\((\d+)\)$/);
-        const teamNumber = teamNumberMatch ? parseInt(teamNumberMatch[1]) : undefined;
-        playerInfo.set(name, {
-          timestamp: signup.timestamp,
-          teamNumber
-        });
-        
-        if (!unspecifiedTimeSlot.includes(name)) {
-          unspecifiedTimeSlot.push(name);
-        }
-      });
-    } else {
-      const timeKey = signup.time; // Store in a constant to avoid type errors
-      if (!timeSlots[timeKey]) {
-        timeSlots[timeKey] = [];
-      }
-      
-      // Use formatted names with team numbers if available
-      const namesToAdd: string[] = 'formattedNames' in signup ? 
-        (signup as SignupWithTeam).formattedNames : 
-        signup.names;
-        
-      namesToAdd.forEach((name: string) => {
-        // Store player info with timestamp and team number
-        const teamNumberMatch = name.match(/\((\d+)\)$/);
-        const teamNumber = teamNumberMatch ? parseInt(teamNumberMatch[1]) : undefined;
-        playerInfo.set(name, {
-          timestamp: signup.timestamp,
-          teamNumber
-        });
-        
-        // Check if this player has opted out from this time slot
-        const playerOptedOut = result.outPlayersByTimeSlot[timeKey] && 
-                              result.outPlayersByTimeSlot[timeKey].includes(name);
-        
-        // Only add player if they haven't opted out and aren't already in the list
-        if (!playerOptedOut && !timeSlots[timeKey].includes(name)) {
-          timeSlots[timeKey].push(name);
-        } else if (playerOptedOut && timeSlots[timeKey].includes(name)) {
-          // Remove player if they're in the list but have opted out
-          const index = timeSlots[timeKey].indexOf(name);
-          if (index !== -1) {
-            timeSlots[timeKey].splice(index, 1);
-          }
-        }
-      });
-    }
-  });
-  
-  output += `## Players by Time Slot\n\n`;
-  
-  Object.keys(timeSlots).sort().forEach(time => {
-    // Filter out players who have opted out
-    let activePlayers = [...timeSlots[time]]; // Create a copy to avoid modifying the original
-    
-    // Remove players who are in the OUT list for this time slot
-    if (result.outPlayersByTimeSlot[time] && result.outPlayersByTimeSlot[time].length > 0) {
-      activePlayers = activePlayers.filter(player => {
-        // Case-insensitive matching and handle special cases like team numbers
-        const playerNameOnly = player.replace(/\s*\(\d+\)$/, '').trim().toLowerCase();
-        
-        // Check if any name in outPlayersByTimeSlot matches this player
-        return !result.outPlayersByTimeSlot[time].some(outPlayer => {
-          const outPlayerName = outPlayer.toLowerCase().trim();
-          return playerNameOnly === outPlayerName || 
-                 playerNameOnly.startsWith(outPlayerName) || 
-                 outPlayerName.startsWith(playerNameOnly);
-        });
-      });
-    }
-    
-    output += `### ${time} Time Slot (${activePlayers.length} players)\n\n`;
-    
-    if (activePlayers.length === 0) {
-      output += `No active players for this time slot.\n`;
-    } else {
-      // Sort the player list - respecting chronological order while keeping team members together
-      const sortedPlayers = activePlayers.sort((a, b) => {
-        const aInfo = playerInfo.get(a);
-        const bInfo = playerInfo.get(b);
-        
-        if (!aInfo || !bInfo) {
-          return a.localeCompare(b); // Fallback if info not found
-        }
-        
-        // If both players are on the same team, keep them together
-        if (aInfo.teamNumber && bInfo.teamNumber && aInfo.teamNumber === bInfo.teamNumber) {
-          return a.localeCompare(b); // Sort teammates alphabetically
-        }
-        
-        // Sort by signup timestamp (chronological order)
-        return aInfo.timestamp - bInfo.timestamp;
-      });
-      
-      sortedPlayers.forEach((player, index) => {
-        output += `${index + 1}. ${player}\n`;
-      });
-    }
-    
-    output += `\n`;
-  });
-  
-  if (unspecifiedTimeSlot.length > 0) {
-    output += `### Unspecified Time Slot (${unspecifiedTimeSlot.length} players)\n\n`;
-    
-    // Sort unspecified time slot players the same way
-    const sortedPlayers = unspecifiedTimeSlot.sort((a, b) => {
-      const aInfo = playerInfo.get(a);
-      const bInfo = playerInfo.get(b);
-      
-      if (!aInfo || !bInfo) {
-        return a.localeCompare(b); // Fallback if info not found
-      }
-      
-      // If both players are on the same team, keep them together
-      if (aInfo.teamNumber && bInfo.teamNumber && aInfo.teamNumber === bInfo.teamNumber) {
-        return a.localeCompare(b); // Sort teammates alphabetically
-      }
-      
-      // Sort by signup timestamp (chronological order)
-      return aInfo.timestamp - bInfo.timestamp;
-    });
-    
-    // Handle substitutes if we have maxTeams defined and more players than slots
-    const availableSlots = groupInfo.maxTeams ? groupInfo.maxTeams * 2 : null;
-    
-    if (availableSlots && sortedPlayers.length > availableSlots) {
-      // First display regular players (those within available slots)
-      for (let i = 0; i < availableSlots; i++) {
-        output += `${i + 1}. ${sortedPlayers[i]}\n`;
-      }
-      
-      // Add a separator for substitutes
-      output += `\nSuplentes:\n`;
-      
-      // Then display substitutes (continuing the numbering)
-      for (let i = availableSlots; i < sortedPlayers.length; i++) {
-        output += `${i + 1}. ${sortedPlayers[i]}\n`;
-      }
-    } else {
-      // If there are not more players than slots, or maxTeams is not defined,
-      // display all players normally
-      sortedPlayers.forEach((player, index) => {
-        output += `${index + 1}. ${player}\n`;
-      });
-    }
-    
-    output += `\n`;
-  }
-  
-  // Signups log
-  output += `## Signup Processing Log\n\n`;
-  
-  if (result.signups.length === 0) {
-    output += `No signups found after registration opened.\n\n`;
-  } else {
-    result.signups.forEach((signup, index) => {
-      const date = new Date(signup.timestamp * 1000);
-      output += `### Signup #${index + 1} (${formatTimeHHMMSS(date)})\n`;
-      output += `- Original message: "${signup.originalMessage}"\n`;
-      output += `- Sender: ${signup.sender}\n`;
-      output += `- Parsed names: ${signup.names.join(', ')}\n`;
-      if (signup.time) {
-        output += `- Time slot: ${signup.time}\n`;
-      }
-      output += `- Status: ${signup.status}\n`;
-
-      // Add detailed parsing debug information
-      if ('isTeam' in signup) {
-        output += `- Is team: ${signup.isTeam}\n`;
-      }
-      if ('timestamp' in signup) {
-        output += `- Timestamp: ${formatDateYYYYMMDDHHMMSS(new Date(signup.timestamp * 1000))}\n`;
-      }
-      
-      // Add team ID information if available
-      if (result.processedSignups) {
-        // Find the corresponding processed signup to get team number
-        const processedSignup = result.processedSignups.find(ps => 
-          ps.timestamp === signup.timestamp && 
-          ps.sender === signup.sender);
-          
-        if (processedSignup && processedSignup.teamNumber) {
-          output += `- Team ID: ${processedSignup.teamNumber}\n`;
-        }
-      }
-      output += `\n`;
-    });
-  }
-  
-  // Final player list section has been removed
-  
-  return output;
+  // Use the extracted markdown formatter
+  return formatOutputAsMarkdown(result, groupInfo);
 }
 
 // Command line interface
