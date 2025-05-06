@@ -283,6 +283,41 @@ describe('Signup Parser', () => {
       expect(result2?.names.length).toBe(1);
       expect(result2?.names[0]).toBe('Pedro\'s partner');
     });
+    
+    it('should handle team OUT messages with explicit names', () => {
+      // Test explicit team names in various formats
+      const teamOutFormats = [
+        'Vlad e Nuno out',
+        'Vlad and Nuno out',
+        'Vlad / Nuno out',
+        'Vlad + Nuno out',
+        'Vlad com Nuno out'
+      ];
+      
+      teamOutFormats.forEach(format => {
+        const result = getSingleResult(parseSignupMessage(createMessage(format)));
+        expect(result).not.toBeNull();
+        expect(result?.status).toBe('OUT');
+        expect(result?.names).toHaveLength(2);
+        expect(result?.names).toContain('Vlad');
+        expect(result?.names).toContain('Nuno');
+        expect(result?.isTeam).toBe(true);
+      });
+    });
+    
+    it('should handle "estamos out" format (implicit team OUT)', () => {
+      // When someone says "estamos out" (we are out), it implies the sender and potentially
+      // their previous partner are out
+      const message = createMessage('Afinal estamos out pra sexta feira', '351965604659@s.whatsapp.net');
+      const result = getSingleResult(parseSignupMessage(message));
+      
+      expect(result).not.toBeNull();
+      expect(result?.status).toBe('OUT');
+      // Should contain the sender's phone as the name
+      expect(result?.names).toContain('351965604659');
+      // Should be marked as a team so the processor knows to look for partners
+      expect(result?.isTeam).toBe(true);
+    });
 
     it('should parse single player in messages with time', () => {
       const rawResult = parseSignupMessage(createMessage('Dennis in 15'));

@@ -20,7 +20,8 @@ export interface ParsedSignup {
   timestamp: number;
   sender: string;
   teamNumber?: number; // Team number for teams (1, 2, 3, etc.)
-  isTeam: boolean; // Flag to indicate if this signup represents a team
+  teamId?: number;     // ID for linking related signups (e.g., for OUT messages to reference existing teams)
+  isTeam: boolean;     // Flag to indicate if this signup represents a team
 }
 
 /**

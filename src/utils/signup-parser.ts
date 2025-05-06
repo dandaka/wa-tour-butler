@@ -124,6 +124,26 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
         names = [];
       }
       
+      // Process OUT messages
+      if (isOutMessage(cleanedContent)) {
+        // Use the enhanced function to extract player names from OUT messages
+        const extractedNames = extractPlayerNamesFromOutMessage(cleanedContent);
+        
+        // Check for "estamos out" pattern (Portuguese for "we are out")
+        const isEstamosOut = /\bestamos\s+out\b/i.test(cleanedContent);
+        
+        // Initialize the list of names
+        let names: string[] = [];
+        
+        // If we have extracted specific names, use them
+        if (extractedNames.length > 0) {
+          names = extractedNames;
+        } else {
+          // If no specific names were extracted, use the sender's name/phone
+          names = [extractNameFromPhoneNumber(message.sender)];
+        }
+      }
+      
       return {
         originalMessage: originalContent,
         names,
@@ -156,17 +176,86 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   // Check if it's an OUT message
   const isOut = isOutMessage(cleanedContent);
   
-  // Special case for team OUT messages like "Miguel e Duarte out das 17h"
-  if (isOut) {
-    // Use the team OUT pattern from centralized constants
-    const teamOutMatch = cleanedContent.match(MESSAGE_PATTERNS.TEAM_OUT);
+  // Special case for "estamos out" pattern (Portuguese for "we are out")
+  if (/\bestamos\s+out\b/i.test(cleanedContent)) {
+    // For "estamos out" (we are out), use the sender's phone number
+    // This is a team OUT message (the person and their partner are out)
+    const senderPhone = extractNameFromPhoneNumber(message.sender);
+    const timeMatch = extractTimePattern(cleanedContent);
+    const time = timeMatch ? formatTimeMatch(timeMatch) : undefined;
     
+    // Extract team ID if present in the message
+    const teamIdMatch = cleanedContent.match(/\bteam(?:\s+|-|_)?(\d+)\b/i);
+    const teamId = teamIdMatch ? parseInt(teamIdMatch[1], 10) : undefined;
+    
+    return {
+      originalMessage: originalContent,
+      names: [senderPhone],
+      time,
+      status: 'OUT',
+      timestamp: message.timestamp,
+      sender: message.sender,
+      isTeam: true,  // Mark as team since it implies multiple people
+      teamId        // Include team ID if found in the message
+    };
+  }
+  
+  // Special handling for team OUT messages with explicit patterns like 'Vlad e Nuno out'
+  // This approach directly handles the common patterns before any other processing
+  if (isOut) {
+    // Define explicit team OUT patterns with capture groups for the names
+    const explicitTeamOutPatterns = [
+      // Format: "Name1 e Name2 out"
+      /^([A-Za-z\u00C0-\u017F]+)\s+e\s+([A-Za-z\u00C0-\u017F]+)\s+out/i,
+      // Format: "Name1 and Name2 out"
+      /^([A-Za-z\u00C0-\u017F]+)\s+and\s+([A-Za-z\u00C0-\u017F]+)\s+out/i, 
+      // Format: "Name1 / Name2 out"
+      /^([A-Za-z\u00C0-\u017F]+)\s*\/\s*([A-Za-z\u00C0-\u017F]+)\s+out/i,
+      // Format: "Name1 + Name2 out" 
+      /^([A-Za-z\u00C0-\u017F]+)\s*\+\s*([A-Za-z\u00C0-\u017F]+)\s+out/i,
+      // Format: "Name1 com Name2 out"
+      /^([A-Za-z\u00C0-\u017F]+)\s+com\s+([A-Za-z\u00C0-\u017F]+)\s+out/i
+    ];
+    
+    // Try each pattern
+    for (const pattern of explicitTeamOutPatterns) {
+      const match = cleanedContent.match(pattern);
+      if (match) {
+        const name1 = cleanName(match[1]);
+        const name2 = cleanName(match[2]);
+        const timeMatch = extractTimePattern(cleanedContent);
+        const time = timeMatch ? formatTimeMatch(timeMatch) : undefined;
+        
+        // Extract team ID if present in the message
+        const teamIdMatch = cleanedContent.match(/\bteam(?:\s+|-|_)?(\d+)\b/i);
+        const teamId = teamIdMatch ? parseInt(teamIdMatch[1], 10) : undefined;
+        
+        // Return as a multi-person OUT signup
+        return {
+          originalMessage: originalContent,
+          names: [name1, name2],
+          time,
+          status: 'OUT',
+          timestamp: message.timestamp,
+          sender: message.sender,
+          isTeam: true,
+          teamId
+        };
+      }
+    }
+    
+    // Fallback to centralized team OUT pattern
+    const teamOutMatch = cleanedContent.match(MESSAGE_PATTERNS.TEAM_OUT);
     if (teamOutMatch) {
       // Extract the names and time
       const name1 = cleanName(teamOutMatch[1]);
       const name2 = cleanName(teamOutMatch[3]);
       const timeMatch = extractTimePattern(cleanedContent);
       const time = timeMatch ? formatTimeMatch(timeMatch) : undefined;
+      
+      // Extract team ID if present in the message
+      const teamIdMatch = cleanedContent.match(/\bteam(?:\s+|-|_)?(\d+)\b/i);
+      const teamId = teamIdMatch ? parseInt(teamIdMatch[1], 10) : undefined;
       
       // Return as a multi-person OUT signup
       return {
@@ -176,8 +265,39 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
         status: 'OUT',
         timestamp: message.timestamp,
         sender: message.sender,
-        isTeam: true
+        isTeam: true,
+        teamId
       };
+    }
+    
+    // Try a more flexible approach for team OUT messages
+    // Clean the message by removing OUT keywords first
+    const cleanedOutMessage = removeOutKeywords(cleanedContent);
+    if (cleanedOutMessage && cleanedOutMessage.length > 3) {
+      // Check if it contains team separators like "e", "and", "/", "+"
+      if (/\b(e|and|\+|com|with|\/)\b/i.test(cleanedOutMessage)) {
+        // Use the team message parser to extract names
+        const teamNames = parseTeamMessage(cleanedOutMessage);
+        if (teamNames && teamNames.length > 0) {
+          const timeMatch = extractTimePattern(cleanedContent);
+          const time = timeMatch ? formatTimeMatch(timeMatch) : undefined;
+          
+          // Extract team ID if present in the message
+          const teamIdMatch = cleanedContent.match(/\bteam(?:\s+|-|_)?(\d+)\b/i);
+          const teamId = teamIdMatch ? parseInt(teamIdMatch[1], 10) : undefined;
+          
+          return {
+            originalMessage: originalContent,
+            names: teamNames,
+            time,
+            status: 'OUT',
+            timestamp: message.timestamp,
+            sender: message.sender,
+            isTeam: true,
+            teamId
+          };
+        }
+      }
     }
   }
   
@@ -385,7 +505,38 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
     // For OUT messages, always use the sender's phone number if no names were found
     // or if the name looks like a common phrase
     if (isOut) {
-      // Check if the extracted names look like common OUT message phrases
+      // Special handling for "estamos out" (we are out) - Portuguese
+      // This implies the sender and potentially their partner are out
+      if (/\bestamos\s+out\b/i.test(content)) {
+        const senderName = extractNameFromPhoneNumber(message.sender);
+        return {
+          originalMessage: content,
+          names: [senderName],
+          time,
+          status: 'OUT',
+          timestamp: message.timestamp,
+          sender: message.sender,
+          isTeam: true  // Mark as team since 'estamos' (we) implies multiple people
+        };
+      }
+      
+      // Process team OUT messages (e.g., "Vlad e Nuno out")
+      // First remove the OUT keywords to get cleaner content for name parsing
+      const cleanedForTeamParsing = removeOutKeywords(content);
+      const teamNames = parseTeamMessage(cleanedForTeamParsing);
+      if (teamNames && teamNames.length > 0) {
+        return {
+          originalMessage: content,
+          names: teamNames,
+          time,
+          status: 'OUT',
+          timestamp: message.timestamp,
+          sender: message.sender,
+          isTeam: true
+        };
+      }
+      
+      // Check if the extracted names look like common OUT phrases
       const commonPhrases = [
         /^sorry/i,
         /cannot make it/i,
@@ -563,28 +714,74 @@ function isSystemMessage(content: string): boolean {
  * Check if a message indicates a player is dropping OUT
  */
 function isOutMessage(content: string): boolean {
-  return /\b(out|sai|saio|n[aã]o posso|can't make it|cancel|cannot make it|remove me|das)\b/i.test(content);
+  // Enhanced pattern to catch more variations including "estamos out"
+  return /\b(out|sai|saio|n[aã]o posso|can't make it|cancel|cannot make it|remove me|das)\b|\b(estamos\s+out|estou\s+out)\b/i.test(content);
+}
+
+/**
+ * Remove OUT-related keywords from a message to isolate player names
+ * @param content Message content to clean
+ * @returns Cleaned content with OUT keywords removed
+ */
+function removeOutKeywords(content: string): string {
+  // First handle complete phrases
+  let cleaned = content
+    .replace(/\bestamos\s+out\b/gi, '') // "we are out" (Portuguese)
+    .replace(/\bestou\s+out\b/gi, '')   // "I am out" (Portuguese)
+    .replace(/\bafinal\s+estamos\s+out\b/gi, '') // "after all we are out" (Portuguese)
+    .replace(/\bpra\s+sexta\s+feira\b/gi, '') // "for Friday" (Portuguese)
+    .replace(/\bpara\s+sexta\s+feira\b/gi, '') // "for Friday" formal (Portuguese)
+    .replace(/\bsexta\s+feira\b/gi, '')        // "Friday" (Portuguese)
+    .replace(/\bcan't\s+make\s+it\b/gi, '')
+    .replace(/\bcannot\s+make\s+it\b/gi, '')
+    .replace(/\bplease\s+remove\s+me\b/gi, '');
+    
+  // Then handle individual keywords
+  cleaned = cleaned.replace(/\b(out|sai|saio|n[aã]o posso|cancel|remove|me|das|afinal|estamos|estou)\b/gi, '');
+  
+  // Clean up any trailing/leading whitespace and multiple spaces
+  return cleaned.replace(/\s+/g, ' ').trim();
 }
 
 /**
  * Attempt to extract player names from an OUT message
- * Returns false if no specific names were found
+ * Returns an array of names if found, or an empty array if no specific names were found
  */
-function extractPlayerNamesFromOutMessage(content: string): boolean {
-  // Check for name patterns in OUT messages (like "Miguel out")
-  const namePatterns = [
-    /^([A-Za-z\u00C0-\u017F]+)\s+(?:is\s+)?out\b/i,  // "Miguel out"
-    /^([A-Za-z\u00C0-\u017F]+)\s+cannot\s+make/i,      // "Miguel cannot make"
-    /^([A-Za-z\u00C0-\u017F]+)\s+can't\s+make/i        // "Miguel can't make"
-  ];
-  
-  for (const pattern of namePatterns) {
-    if (pattern.test(content)) {
-      return true;
-    }
+function extractPlayerNamesFromOutMessage(content: string): string[] {
+  // Special case for "estamos out" (we are out)
+  if (/\bestamos\s+out\b/i.test(content)) {
+    return []; // Return empty array to signal that we should use the sender's info
   }
   
-  return false;
+  // Clean the content by removing OUT-specific keywords
+  const cleanContent = removeOutKeywords(content);
+  
+  // If after cleaning there's nothing substantial left, just return empty array
+  if (cleanContent.length < 3) {
+    return [];
+  }
+  
+  // Now use the exact same parsing functions we use for IN messages
+  
+  // 1. First try team message parsing (Name1 e Name2, Name1/Name2, etc.)
+  const teamNames = parseTeamMessage(cleanContent);
+  if (teamNames && teamNames.length > 0) {
+    return teamNames;
+  }
+  
+  // 2. Then try single player parsing
+  const singleName = parseSinglePlayerMessage(cleanContent);
+  if (singleName) {
+    return [singleName];
+  }
+  
+  // 3. If all else fails, use the general message parsing
+  const names = parseGeneralMessage(cleanContent);
+  if (names && names.length > 0) {
+    return names;
+  }
+  
+  return [];
 }
 
 /**
@@ -735,6 +932,10 @@ function parseTeamMessage(content: string): string[] | null {
     name1 = name1.replace(/\s+in\b/i, '');
     name2 = name2.replace(/\s+in\b/i, '');
     name2 = name2.replace(/\s+at\b/i, ''); // Remove 'at' from second name
+    
+    // Remove OUT keywords from names (for team OUT messages)
+    name1 = name1.replace(/\s+out\b/i, '');
+    name2 = name2.replace(/\s+out\b/i, ''); // This fixes the "Nuno out" issue
     
     // Remove time information from the second name if present
     // First try to remove standard time patterns (with h, :, etc.)
