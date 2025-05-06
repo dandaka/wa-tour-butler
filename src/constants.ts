@@ -24,14 +24,16 @@ export const REGISTRATION_KEYWORDS = [
 
 // Time Patterns
 export const TIME_PATTERNS = {
-  // Matches time formats: 15h, 15h00, 15:00, 15.00
-  TIME_FORMAT: /(\d{1,2})[h:.](\d{0,2})/i,
+  // Common formats: 15h, 15:00, 15:30h, 15.00
+  TIME_FORMAT_HOUR_MINUTES: /\b(\d{1,2})(?::h?|h:?|\.)?(\d{2})?h?\b/i,
+  // Simple hour format: 15h or just 15
+  TIME_FORMAT_HOUR_ONLY: /\b(\d{1,2})h?\b/i,
   // Matches time at the end of a string: "in 15h", "at 14:00"
-  TIME_AT_END: /\s+(\d{1,2}[h:.]\d{0,2})$/i,
-  // Matches multiple time slots
-  MULTIPLE_TIMES: /\d+[h:.]\d*\s+(?:and|e|&|\+)\s+\d+[h:.]\d*/i,
+  TIME_AT_END: /\s+(\d{1,2}(?:[h:.]\d{0,2})?)$/i,
+  // Matches multiple time slots - capturing the first time
+  MULTIPLE_TIMES: /\b(\d{1,2})\s+(?:and|e|&|\+)\s+\d{1,2}\b/i,
   // Matches second time slot after a connector
-  SECOND_TIME: /(?:and|e|&|\+)\s+(\d+[h:.]\d*)/i,
+  SECOND_TIME: /(?:and|e|&|\+)\s+(\d+[h:.]?\d*)/i,
   // Specific time format without h/: suffix (just a number like "in 15")
   NUMERIC_TIME: /\s+(\d{1,2})$/i
 };
