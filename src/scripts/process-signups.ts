@@ -6,6 +6,7 @@ import { parseSignupMessage } from '../utils/signup-parser';
 import { processSignupsWithTeams, SignupWithTeam } from '../utils/team-numbering';
 import { WhatsAppMessage } from '../types/messages';
 import { ParsedSignup, GroupInfo, ProcessingResult } from '../types/signups';
+import { PROJECT_ROOT, DB_PATH, GROUPS_CSV_PATH, OUTPUT_DIR, REGISTRATION_KEYWORDS } from '../constants';
 
 type DatabaseType = ReturnType<typeof BetterSqlite3>;
 
@@ -16,19 +17,7 @@ interface DatabaseMessage extends WhatsAppMessage {
   is_from_me: number;
 }
 
-// Constants
-const PROJECT_ROOT = path.resolve(__dirname, '../..');
-const DB_PATH = path.join(PROJECT_ROOT, 'data/whatsapp_messages.db');
-const GROUPS_CSV_PATH = path.join(PROJECT_ROOT, 'GROUPS.csv');
-// More flexible registration keywords
-const REGISTRATION_KEYWORDS = [
-  'Inscrições abertas',
-  'Inscrições',
-  'abertas',
-  'inscrição',
-  'Registros'  
-];
-const OUTPUT_DIR = PROJECT_ROOT;
+// Using centralized constants from constants.ts
 
 // Main function
 async function processSignups(groupId: string, outputPath?: string, forceRegistrationTimestamp?: number) {

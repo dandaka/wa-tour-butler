@@ -8,6 +8,7 @@
 // Import types from central types directory
 import { WhatsAppMessage } from '../types/messages';
 import { ParsedSignup } from '../types/signups';
+import { MESSAGE_PATTERNS, NAME_PATTERNS, TEST_CASES, MAX_NAME_WORDS, TIME_PATTERNS } from '../constants';
 
 // Re-export types for backward compatibility
 export { WhatsAppMessage } from '../types/messages';
@@ -113,9 +114,8 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   
   // Special case for team OUT messages like "Miguel e Duarte out das 17h"
   if (isOut) {
-    // Pattern for team OUT messages: "Name1 e/and Name2 out..."
-    const teamOutPattern = /^([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+e\s+|\s+and\s+)([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+out\s+.*)(\d{1,2}[h:.]\d*|\d{1,2}h)\b/i;
-    const teamOutMatch = cleanedContent.match(teamOutPattern);
+    // Use the team OUT pattern from centralized constants
+    const teamOutMatch = cleanedContent.match(MESSAGE_PATTERNS.TEAM_OUT);
     
     if (teamOutMatch) {
       // Extract the names and time
