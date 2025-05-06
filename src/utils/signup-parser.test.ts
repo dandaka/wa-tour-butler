@@ -523,6 +523,41 @@ describe('Signup Parser', () => {
       expect(result2?.names).toContain('Rafael');
       expect(result2?.names).toContain('André');
       expect(result2?.time).toBe('16:00');
+      
+      // Test the specific case of "In com Eric" with reaction
+      const senderPhone = '351966314427@s.whatsapp.net';
+      const messageWithInComReaction = createMessage('[EDITED] In com Eric', senderPhone);
+      const result3 = getSingleResult(parseSignupMessage(messageWithInComReaction));
+      
+      expect(result3).not.toBeNull();
+      expect(result3?.names).toHaveLength(2);
+      expect(result3?.names[0]).toBe('351966314427'); // Sender phone number
+      expect(result3?.names[1]).toBe('Eric'); // Partner name
+      // Time may be default if not specified in the message
+    });
+    
+    it('should correctly handle the "In com Eric" case with reaction markers', () => {
+      // Test the specific case of "In com Eric" with various reaction markers
+      const senderPhone = '351966314427@s.whatsapp.net';
+      const testCases = [
+        { input: '[EDITEDMESSAGE] In com Eric', expected: ['351966314427', 'Eric'] },
+        { input: 'In com Eric [REACTION]', expected: ['351966314427', 'Eric'] },
+        { input: '[DELETED] In com Eric', expected: ['351966314427', 'Eric'] },
+        { input: '[🔥] In com Eric', expected: ['351966314427', 'Eric'] }
+      ];
+      
+      testCases.forEach(testCase => {
+        const message = createMessage(testCase.input, senderPhone);
+        const rawResult = parseSignupMessage(message);
+        const result = getSingleResult(rawResult);
+        
+        expect(result).not.toBeNull();
+        expect(result?.names).toHaveLength(2);
+        expect(result?.names[0]).toBe(testCase.expected[0]); // Sender phone
+        expect(result?.names[1]).toBe(testCase.expected[1]); // Partner name
+        // This is a team sign up
+        expect(result?.isTeam).toBe(true);
+      });
     });
 
     /**

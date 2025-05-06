@@ -64,6 +64,27 @@ async function processSignups(groupId: string, outputPath?: string, forceRegistr
     const messages = getMessagesFromGroup(db, groupId);
     console.log(`Found ${messages.length} messages in this group`);
     
+    // Log all messages from +351 966 314 427 regardless of registration timestamp
+    console.log('\n\u2728 MESSAGES FROM +351 966 314 427:');
+    const messagesFromNumber = messages.filter(m => m.sender.includes('351966314427'));
+    messagesFromNumber.forEach(m => {
+      const date = new Date(m.timestamp * 1000);
+      console.log(`[${date.toLocaleString()}] ${m.content}`);
+    });
+    console.log('\n');
+    
+    // Log all messages containing 'in com eric' regardless of brackets or registration timestamp
+    console.log('\n\ud83d\udd0e MESSAGES CONTAINING "IN COM ERIC":');
+    const inComEricMessages = messages.filter(m => 
+      m.content.toLowerCase().includes('in com') && 
+      m.content.toLowerCase().includes('eric')
+    );
+    inComEricMessages.forEach(m => {
+      const date = new Date(m.timestamp * 1000);
+      console.log(`[${date.toLocaleString()}] From: ${m.sender} | Content: ${m.content}`);
+    });
+    console.log('\n');
+
     // 3. Process messages
     const result = processMessages(messages, groupInfo, forceRegistrationTimestamp);
     
@@ -249,6 +270,39 @@ function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistr
         console.log(`Processing potential signup [${new Date(message.timestamp * 1000).toLocaleString()}]: ${message.content.substring(0, 60)}${message.content.length > 60 ? '...' : ''}`);
       }
       
+      // Add detailed debug logging for specific messages with reaction markers
+      if (message.content.includes('[') && message.content.includes(']') && 
+          (message.content.toLowerCase().includes('in com') || message.content.toLowerCase().includes('eric'))) {
+        console.log(`🔍 REACTION MARKER DETECTED in message from ${message.sender}: "${message.content}"`);  
+      }
+      
+      // Specific debugging for +351 966 314 427's "In com Eric" message
+      if (message.sender.includes('351966314427')) {
+        console.log(`⭐️ FOUND MESSAGE FROM +351 966 314 427: "${message.content}"`);  
+      }
+      
+      // Extra detailed logging for the phone number and specific message we're looking for
+      if (message.sender.includes('351966314427') || 
+          (message.content.toLowerCase().includes('in com') && 
+           message.content.toLowerCase().includes('eric'))) {
+        console.log('\n🔍🔍🔍 FOUND IMPORTANT MESSAGE:');
+        console.log(`Time: ${new Date(message.timestamp * 1000).toLocaleString()}`);
+        console.log(`Sender: ${message.sender}`);
+        console.log(`Content: "${message.content}"`);
+        
+        // Try parsing it with our updated parser
+        const ericResult = parseSignupMessage(message);
+        console.log(`Parsed Result: ${JSON.stringify(ericResult, null, 2)}`);
+        
+        if (ericResult) {
+          const hasEric = Array.isArray(ericResult) 
+            ? ericResult.some(r => r.names.some(n => n.includes('Eric')))
+            : ericResult.names.some(n => n.includes('Eric'));
+          console.log(`Contains Eric: ${hasEric}`);
+        }
+        console.log('🔍🔍🔍 END OF IMPORTANT MESSAGE\n');
+      }
+      
       const parsedResult = parseSignupMessage(message);
       if (parsedResult) {
         // Handle both single result and array of results
@@ -397,9 +451,29 @@ function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): string {
       return a.localeCompare(b);
     });
     
-    sortedPlayers.forEach((player, index) => {
-      output += `${index + 1}. ${player}\n`;
-    });
+    // Handle substitutes if we have maxTeams defined and more players than slots
+    const availableSlots = groupInfo.maxTeams ? groupInfo.maxTeams * 2 : null;
+    
+    if (availableSlots && sortedPlayers.length > availableSlots) {
+      // First display regular players (those within available slots)
+      for (let i = 0; i < availableSlots; i++) {
+        output += `${i + 1}. ${sortedPlayers[i]}\n`;
+      }
+      
+      // Add a separator for substitutes
+      output += `\nSuplentes:\n`;
+      
+      // Then display substitutes (continuing the numbering)
+      for (let i = availableSlots; i < sortedPlayers.length; i++) {
+        output += `${i + 1}. ${sortedPlayers[i]}\n`;
+      }
+    } else {
+      // If there are not more players than slots, or maxTeams is not defined,
+      // display all players normally
+      sortedPlayers.forEach((player, index) => {
+        output += `${index + 1}. ${player}\n`;
+      });
+    }
     
     output += `\n`;
   }
