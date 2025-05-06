@@ -44,83 +44,18 @@ Most logic was concentrated in a few key files:
 - `signup-parser.ts`: Parser for WhatsApp messages
 - `team-numbering.ts`: Logic for assigning team numbers
 
-### Current Structure (After Refactoring)
+### Current Structure Assessment
 
-The current structure has been split into many smaller files:
+Progress has been made with modularizing the codebase:
+- The signup-parser has been extracted into its own module
+- Tests have been created for the modularized components
+- Some utility functions have been separated
 
-```
-src/
-├── core/
-│   ├── database.ts
-│   ├── message-processor.ts         # Extracted from process-signups.ts
-│   ├── registration-detector.ts     # New component
-│   └── team-numbering.ts            # Moved from utils
-├── formatters/
-│   └── markdown-formatter.ts        # New component
-├── handlers/
-│   └── messageHandler.ts
-├── index.ts
-├── scripts/
-│   └── [same script files as before]
-├── test-refactoring.ts              # New testing file
-├── tests/                           # New test directory
-│   ├── parser-tests.ts
-│   ├── process-pipeline.test.ts
-│   ├── process-tests.ts
-│   └── signup-parser.test.ts
-├── tournament/
-│   └── tournamentManager.ts
-├── types/
-│   └── [same type files as before]
-├── utils/
-│   ├── helpers/                     # New utility helpers
-│   │   ├── date-formatter.ts
-│   │   ├── logger.ts
-│   │   ├── message-cleaners.ts
-│   │   ├── name-helpers.ts
-│   │   └── time-helpers.ts
-│   ├── logger.ts
-│   ├── parsers/                     # Split parser modules
-│   │   ├── out-message-parser.ts
-│   │   ├── single-player-parser.ts
-│   │   ├── special-cases-parser.ts
-│   │   ├── team-parser.fixed.ts
-│   │   └── team-parser.ts
-│   ├── signup-parser.test.ts
-│   ├── signup-parser.ts             # Still exists but likely modified
-│   ├── team-numbering.test.ts
-│   ├── team-numbering.ts            # Duplicate of core/team-numbering.ts?
-│   └── types.ts                     # Extracted type definitions
-└── whatsapp/
-    └── connection.ts
-```
-
-## Issues with Current Refactoring
-
-1. **Test Failures**: The current refactoring has broken existing tests.
-   - Tests fail because function signatures have changed without updating tests
-   - Variable references between modules don't match (e.g., variable `senderName` used but not defined)
-   - Import paths have changed, breaking dependencies
-
-2. **Duplicate Modules**: Some logic exists in multiple places.
-   - `team-numbering.ts` exists in both core/ and utils/ directories
-   - Time-related functions are duplicated across various helpers and parsers
-   - Parser logic is partially duplicated in different files
-
-3. **Overly Fragmented**: Parsing logic is split into too many files.
-   - Creates complex dependency chains and circular references
-   - Makes code flow difficult to follow (e.g., a single message parsing requires jumping between 5+ files)
-   - Increases cognitive load when debugging or extending the code
-
-4. **Lack of Clear Architecture**: The boundaries between components are blurred.
-   - Unclear division of responsibilities between core/ and utils/
-   - No clear separation between data access, business logic, and presentation
-   - Parsers are placed in utils/parsers/ but some parsing still happens in signup-parser.ts
-
-5. **Missing Documentation**: The new structure lacks clear documentation.
-   - Few JSDoc comments explaining the purpose of functions
-   - Missing module-level documentation
-   - No architecture overview or component interaction diagrams
+However, several issues remain:
+- Large files with multiple responsibilities (signup-parser.ts is ~31K chars)
+- Utility functions scattered throughout the codebase
+- Limited separation between data access, business logic, and presentation layers
+- Main script files (like process-signups.ts) still have too many responsibilities
 
 ## Refactoring Goals
 
@@ -129,6 +64,23 @@ src/
 3. **Establish Clear Boundaries**: Define clear interfaces between components.
 4. **Ensure Maintainability**: Make the codebase easier to maintain and extend.
 5. **Preserve Functionality**: All existing features should continue to work correctly.
+
+## Refactoring Approach: Test-Driven Development (TDD)
+
+We will use a strict Test-Driven Development approach for the refactoring:
+
+1. **Write Tests First**: Before making any changes, write tests that verify the expected behavior.
+2. **Red-Green-Refactor**:
+   - Red: Write a failing test for the functionality you want to change
+   - Green: Implement the minimal code to make the test pass
+   - Refactor: Clean up the code while keeping tests passing
+
+3. **Small, Incremental Changes**: Make changes in small, testable increments:
+   - Complete one module extraction at a time
+   - Run tests after each change to ensure nothing breaks
+   - Commit working code frequently
+
+4. **Continuous Verification**: Regularly run the application to confirm functionality is preserved.
 
 ## Proposed Architecture
 
@@ -146,7 +98,7 @@ src/
 │   └── markdown-formatter.ts # Markdown output
 ├── parsers/                  # Message parsing
 │   ├── index.ts              # Main parser entry point
-│   ├── common.ts             # Shared parsing utilities
+│   ├── classifier.ts         # Message type classification
 │   ├── out-messages.ts       # OUT message parsing
 │   ├── time-slots.ts         # Time extraction
 │   └── team-messages.ts      # Team message parsing
@@ -161,43 +113,6 @@ src/
 └── whatsapp/                 # WhatsApp integration
     └── connection.ts         # WhatsApp connection handling
 ```
-
-## Implementation Details
-
-### Key Interfaces and Types
-
-```typescript
-// src/types/index.ts
-export interface WhatsAppMessage {
-  sender: string;
-  timestamp: number;
-  content: string;
-  id?: string;
-  chat_id?: string;
-  is_from_me?: number;
-}
-
-export interface ParsedSignup {
-  originalMessage: string;
-  names: string[];
-  time?: string;
-  status: 'IN' | 'OUT';
-  timestamp: number;
-  sender: string;
-  isTeam?: boolean;
-}
-
-export interface GroupInfo {
-  id: string;
-  name: string;
-  admin: string;
-  tournamentTime?: string;
-  signupStartTime?: string;
-  maxTeams?: number;
-}
-
-export interface ProcessingResult {
-  registrationOpenMessage?: WhatsAppMessage;
   signups: ParsedSignup[];
   processedSignups?: ProcessedSignup[]; 
   finalPlayerList: string[];
@@ -419,13 +334,109 @@ export function processMessages(
 
 Follow similar patterns for these components, extracting them one by one and maintaining test integrity throughout.
 
-## Testing Approach
+## Implementation Plan
 
-1. Create test doubles for each component to isolate testing.
-   ```typescript
-   // Example test double for parser
-   function mockParseSignupMessage(message: WhatsAppMessage): ParsedSignup | null {
-     // Simplified implementation for testing
+### Phase 1: Establish Core Interfaces
+
+1. **Define Domain Types**:
+   - Write tests for type validation
+   - Create comprehensive type definitions in `types/index.ts`
+   - Use these types to guide further development
+
+2. **Create Boundaries**:
+   - Define clear interfaces between components
+   - Test these interfaces with mock implementations
+
+### Phase 2: Extract Utility Functions
+
+1. **Create Utility Modules**:
+   - Text handling utilities
+   - Date/time formatting
+   - Logging enhancements
+
+2. **TDD Process for Each Utility**:
+   - Write tests for each utility function
+   - Extract the function from existing code
+   - Refactor until tests pass
+
+### Phase 3: Implement Message Parser Modules
+
+1. **Message Classifier**:
+   - Write tests for message type detection
+   - Implement classifier module
+   - Ensure all test cases pass
+
+2. **Specialized Parsers**:
+   - Team message parser
+   - OUT message parser
+   - Single player parser
+   - Special case handlers
+
+3. **Complete Parser Integration**:
+   - Create unified parser interface
+   - Update existing code to use new parsers
+
+### Phase 4: Implement Processing Pipeline
+
+1. **Define Pipeline Steps**:
+   - Message classification
+   - Parsing
+   - Processing
+   - Output formatting
+
+2. **Create Pipeline Framework**:
+   - Test-driven implementation of pipeline
+   - Step-by-step execution with clear state transitions
+
+### Phase 5: Refactor Data Access
+
+1. **Repository Pattern Implementation**:
+   - Message repository
+   - Group repository
+   - Player repository
+
+2. **Database Access Abstraction**:
+   - Create data access interfaces
+   - Implement concrete implementations
+
+## Testing Strategy
+
+For each component:
+
+1. **Unit Tests**:
+   - Test each function in isolation
+   - Use mock objects for dependencies
+
+2. **Integration Tests**:
+   - Test components working together
+   - Verify correct data flow between modules
+
+3. **End-to-End Tests**:
+   - Test complete processing pipeline
+   - Verify real-world examples
+
+## Execution Strategy
+
+1. **One Component at a Time**:
+   - Complete refactoring of one component before moving to the next
+   - Ensure all tests pass after each component is refactored
+
+2. **Regular Testing**:
+   - Run tests after each significant change
+   - Fix failing tests immediately
+
+3. **Documentation**:
+   - Add JSDoc comments to all functions
+   - Create architecture documentation
+   - Document the design decisions and patterns used
+
+4. **Code Review**:
+   - Review each completed component
+   - Ensure adherence to architecture principles
+   
+5. **Continuous Integration**:
+   - Run the full application after major changes
+   - Verify functionality with real data
      if (message.content.includes('OUT')) {
        return {
          originalMessage: message.content,
