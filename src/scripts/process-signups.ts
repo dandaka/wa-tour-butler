@@ -2,33 +2,18 @@ import BetterSqlite3 from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import csv from 'csv-parser';
-import { parseSignupMessage, WhatsAppMessage, ParsedSignup } from '../utils/signup-parser';
+import { parseSignupMessage } from '../utils/signup-parser';
 import { processSignupsWithTeams, SignupWithTeam } from '../utils/team-numbering';
+import { WhatsAppMessage } from '../types/messages';
+import { ParsedSignup, GroupInfo, ProcessingResult } from '../types/signups';
 
 type DatabaseType = ReturnType<typeof BetterSqlite3>;
 
-// Types
-interface GroupInfo {
-  id: string;
-  name: string;
-  admin: string;
-  tournamentTime?: string;
-  signupStartTime?: string;
-  maxTeams?: number;
-}
-
-interface Message extends WhatsAppMessage {
+// Local types
+interface DatabaseMessage extends WhatsAppMessage {
   id: string;
   chat_id: string;
   is_from_me: number;
-}
-
-interface ProcessingResult {
-  registrationOpenMessage?: Message;
-  signups: ParsedSignup[];
-  processedSignups?: SignupWithTeam[]; // Added for team numbering
-  finalPlayerList: string[];
-  outPlayersByTimeSlot: Record<string, string[]>; // Track players who opted out by time slot
 }
 
 // Constants
@@ -139,7 +124,7 @@ async function getGroupInfo(groupId: string): Promise<GroupInfo | null> {
 }
 
 // Get messages from the database for a specific group
-function getMessagesFromGroup(db: DatabaseType, groupId: string): Message[] {
+function getMessagesFromGroup(db: DatabaseType, groupId: string): DatabaseMessage[] {
   const query = `
     SELECT id, chat_id, sender, timestamp, content, is_from_me
     FROM messages
@@ -147,11 +132,11 @@ function getMessagesFromGroup(db: DatabaseType, groupId: string): Message[] {
     ORDER BY timestamp ASC
   `;
   
-  return db.prepare(query).all(groupId) as Message[];
+  return db.prepare(query).all(groupId) as DatabaseMessage[];
 }
 
 // Process messages to extract signup information
-export function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistrationTimestamp?: number): ProcessingResult {
+export function processMessages(messages: DatabaseMessage[], groupInfo: GroupInfo, forceRegistrationTimestamp?: number): ProcessingResult {
   const result: ProcessingResult = {
     signups: [],
     finalPlayerList: [],
