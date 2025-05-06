@@ -18,20 +18,32 @@ A WhatsApp bot built with Baileys that helps organize padel tournaments in Whats
    npm run whatsapp-login
    ```
 
-2. Sync messages from your target padel group with time-based filtering:
-   ```
-   # Default - last 24 hours
-   npm run sync-messages
-   
-   # Last hour
-   npm run sync-messages -- 1h
-   
-   # Last day
-   npm run sync-messages -- 1d
-   
-   # Last week
-   npm run sync-messages -- 1w
-   ```
+## Usage Examples
+
+### Storing Messages from Groups
+```bash
+# Store messages from all configured groups
+pnpm run store-messages
+
+# Store messages with a specific date filter
+pnpm run store-messages --since=2023-10-01
+
+# Store messages from a specific group
+pnpm run store-messages --group-id=120363028202164779@g.us
+```
+
+### Processing Signup Messages
+```bash
+# Process all signup messages from configured groups
+pnpm run parse-all
+
+# Process signups and output to a specific file
+pnpm run parse-all --output=tournament-players.md
+
+# Process signups from a specific date
+pnpm run parse-all --since=2023-10-01
+```
+
 
 ## Setup
 
@@ -67,8 +79,6 @@ pnpm run dev
 - `pnpm run watch` - Build and watch for changes
 - `pnpm run whatsapp-login` - Connect to WhatsApp Web and create session files
 - `pnpm run parse-all` - Process signup messages from all configured groups (defined in groups.csv)
-- `pnpm run sync-messages` - Sync messages from the target group to the database
-  - Optional time period parameter: `1h` (1 hour), `1d` (1 day), `1w` (1 week)
 - `pnpm run view-messages` - Display messages from the target group in chronological order
   - Optional parameters: `--newest-first`, `--limit=10`
 - `pnpm run fetch-groups` - List all available WhatsApp groups

@@ -69,7 +69,7 @@ async function processSignups(groupId: string, outputPath?: string, forceRegistr
     const messagesFromNumber = messages.filter(m => m.sender.includes('351966314427'));
     messagesFromNumber.forEach(m => {
       const date = new Date(m.timestamp * 1000);
-      console.log(`[${date.toLocaleString()}] ${m.content}`);
+      console.log(`[${formatDateYYYYMMDDHHMMSS(date)}] ${m.content}`);
     });
     console.log('\n');
     
@@ -187,7 +187,7 @@ function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistr
     console.log('Potential registration messages:');
     potentialRegistrationMessages.forEach((msg, i) => {
       const date = new Date(msg.timestamp * 1000);
-      console.log(`${i+1}. [${date.toLocaleString()}] ${msg.content.substring(0, 80)}${msg.content.length > 80 ? '...' : ''}`);
+      console.log(`${i+1}. [${formatDateYYYYMMDDHHMMSS(date)}] ${msg.content.substring(0, 80)}${msg.content.length > 80 ? '...' : ''}`);
     });
   }
   
@@ -341,6 +341,27 @@ function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistr
   return result;
 }
 
+// Helper function to format date as YYYY-MM-DD HH:MM:SS
+function formatDateYYYYMMDDHHMMSS(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+// Helper function to format time as HH:MM:SS
+function formatTimeHHMMSS(date: Date): string {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+  return `${hours}:${minutes}:${seconds}`;
+}
+
 // Format the output for logging
 export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): string {
   let output = `# Signup Processing for ${groupInfo.name}\n\n`;
@@ -349,7 +370,7 @@ export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): st
   if (result.registrationOpenMessage) {
     const date = new Date(result.registrationOpenMessage.timestamp * 1000);
     output += `## Registration Information\n`;
-    output += `- Registration opened: ${date.toLocaleString()}\n`;
+    output += `- Registration opened: ${formatDateYYYYMMDDHHMMSS(date)}\n`;
     output += `- Admin: ${groupInfo.admin}\n`;
     output += `- Original message: "${result.registrationOpenMessage.content}"\n\n`;
   }
@@ -486,7 +507,7 @@ export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): st
   } else {
     result.signups.forEach((signup, index) => {
       const date = new Date(signup.timestamp * 1000);
-      output += `### Signup #${index + 1} (${date.toLocaleTimeString()})\n`;
+      output += `### Signup #${index + 1} (${formatTimeHHMMSS(date)})\n`;
       output += `- Original message: "${signup.originalMessage}"\n`;
       output += `- Sender: ${signup.sender}\n`;
       output += `- Parsed names: ${signup.names.join(', ')}\n`;
@@ -500,7 +521,7 @@ export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): st
         output += `- Is team: ${signup.isTeam}\n`;
       }
       if ('timestamp' in signup) {
-        output += `- Timestamp: ${new Date(signup.timestamp * 1000).toLocaleString()}\n`;
+        output += `- Timestamp: ${formatDateYYYYMMDDHHMMSS(new Date(signup.timestamp * 1000))}\n`;
       }
       output += `\n`;
     });
