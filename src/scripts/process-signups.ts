@@ -500,6 +500,18 @@ export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): st
       if ('timestamp' in signup) {
         output += `- Timestamp: ${formatDateYYYYMMDDHHMMSS(new Date(signup.timestamp * 1000))}\n`;
       }
+      
+      // Add team ID information if available
+      if (result.processedSignups) {
+        // Find the corresponding processed signup to get team number
+        const processedSignup = result.processedSignups.find(ps => 
+          ps.timestamp === signup.timestamp && 
+          ps.sender === signup.sender);
+          
+        if (processedSignup && processedSignup.teamNumber) {
+          output += `- Team ID: ${processedSignup.teamNumber}\n`;
+        }
+      }
       output += `\n`;
     });
   }
