@@ -126,6 +126,32 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   // Check if it's an OUT message
   const isOut = isOutMessage(cleanedContent);
   
+  // Special case for team OUT messages like "Miguel e Duarte out das 17h"
+  if (isOut) {
+    // Pattern for team OUT messages: "Name1 e/and Name2 out..."
+    const teamOutPattern = /^([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+e\s+|\s+and\s+)([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+out\s+.*)(\d{1,2}[h:.]\d*|\d{1,2}h)\b/i;
+    const teamOutMatch = cleanedContent.match(teamOutPattern);
+    
+    if (teamOutMatch) {
+      // Extract the names and time
+      const name1 = cleanName(teamOutMatch[1]);
+      const name2 = cleanName(teamOutMatch[3]);
+      const timeMatch = extractTimePattern(cleanedContent);
+      const time = timeMatch ? formatTimeMatch(timeMatch) : undefined;
+      
+      // Return as a multi-person OUT signup
+      return {
+        originalMessage: originalContent,
+        names: [name1, name2],
+        time,
+        status: 'OUT',
+        timestamp: message.timestamp,
+        sender: message.sender,
+        isTeam: true
+      };
+    }
+  }
+  
   // Handle special partner-specific OUT messages
   if (isOut) {
     const partnerOutPattern = /(?:my|([A-Za-z\u00C0-\u017F\s'\-\.]+?))\s+partner\s+(?:is\s+)?out/i;
@@ -511,7 +537,7 @@ function isSystemMessage(content: string): boolean {
  * Check if a message indicates a player is dropping OUT
  */
 function isOutMessage(content: string): boolean {
-  return /\b(out|sai|saio|n[aã]o posso|can't make it|cancel|cannot make it|remove me)\b/i.test(content);
+  return /\b(out|sai|saio|n[aã]o posso|can't make it|cancel|cannot make it|remove me|das)\b/i.test(content);
 }
 
 /**

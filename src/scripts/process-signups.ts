@@ -28,6 +28,7 @@ interface ProcessingResult {
   signups: ParsedSignup[];
   processedSignups?: SignupWithTeam[]; // Added for team numbering
   finalPlayerList: string[];
+  outPlayersByTimeSlot: Record<string, string[]>; // Track players who opted out by time slot
 }
 
 // Constants
@@ -150,10 +151,12 @@ function getMessagesFromGroup(db: DatabaseType, groupId: string): Message[] {
 }
 
 // Process messages to extract signup information
-function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistrationTimestamp?: number): ProcessingResult {
+export function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistrationTimestamp?: number): ProcessingResult {
   const result: ProcessingResult = {
     signups: [],
-    finalPlayerList: []
+    finalPlayerList: [],
+    // Track players who opted out by time slot
+    outPlayersByTimeSlot: {}
   };
   
   // Find the most recent registration open message from the admin
@@ -328,6 +331,17 @@ function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistr
               if (index !== -1) {
                 result.finalPlayerList.splice(index, 1);
               }
+              
+              // Also track players opting out from specific time slots
+              if (signup.time) {
+                if (!result.outPlayersByTimeSlot[signup.time]) {
+                  result.outPlayersByTimeSlot[signup.time] = [];
+                }
+                if (!result.outPlayersByTimeSlot[signup.time].includes(name)) {
+                  result.outPlayersByTimeSlot[signup.time].push(name);
+                  console.log(`Added ${name} to OUT list for time slot ${signup.time}`);
+                }
+              }
             });
           }
         }
@@ -408,8 +422,19 @@ export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): st
         signup.names;
         
       namesToAdd.forEach((name: string) => {
-        if (!timeSlots[timeKey].includes(name)) {
+        // Check if this player has opted out from this time slot
+        const playerOptedOut = result.outPlayersByTimeSlot[timeKey] && 
+                              result.outPlayersByTimeSlot[timeKey].includes(name);
+        
+        // Only add player if they haven't opted out and aren't already in the list
+        if (!playerOptedOut && !timeSlots[timeKey].includes(name)) {
           timeSlots[timeKey].push(name);
+        } else if (playerOptedOut && timeSlots[timeKey].includes(name)) {
+          // Remove player if they're in the list but have opted out
+          const index = timeSlots[timeKey].indexOf(name);
+          if (index !== -1) {
+            timeSlots[timeKey].splice(index, 1);
+          }
         }
       });
     }
@@ -418,32 +443,55 @@ export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): st
   output += `## Players by Time Slot\n\n`;
   
   Object.keys(timeSlots).sort().forEach(time => {
-    output += `### ${time} Time Slot (${timeSlots[time].length} players)\n\n`;
+    // Filter out players who have opted out
+    let activePlayers = [...timeSlots[time]]; // Create a copy to avoid modifying the original
     
-    // Sort the player list - this will group team members together by their team numbers
-    const sortedPlayers = timeSlots[time].sort((a, b) => {
-      // Extract team numbers if present
-      const aMatch = a.match(/\((\d+)\)$/); 
-      const bMatch = b.match(/\((\d+)\)$/);
-      
-      // If both have team numbers, sort by team number first
-      if (aMatch && bMatch) {
-        const aTeam = parseInt(aMatch[1]);
-        const bTeam = parseInt(bMatch[1]);
-        if (aTeam !== bTeam) return aTeam - bTeam;
-      }
-      
-      // If only one has a team number, put teams first
-      if (aMatch && !bMatch) return -1;
-      if (!aMatch && bMatch) return 1;
-      
-      // Otherwise sort alphabetically
-      return a.localeCompare(b);
-    });
+    // Remove players who are in the OUT list for this time slot
+    if (result.outPlayersByTimeSlot[time] && result.outPlayersByTimeSlot[time].length > 0) {
+      activePlayers = activePlayers.filter(player => {
+        // Case-insensitive matching and handle special cases like team numbers
+        const playerNameOnly = player.replace(/\s*\(\d+\)$/, '').trim().toLowerCase();
+        
+        // Check if any name in outPlayersByTimeSlot matches this player
+        return !result.outPlayersByTimeSlot[time].some(outPlayer => {
+          const outPlayerName = outPlayer.toLowerCase().trim();
+          return playerNameOnly === outPlayerName || 
+                 playerNameOnly.startsWith(outPlayerName) || 
+                 outPlayerName.startsWith(playerNameOnly);
+        });
+      });
+    }
     
-    sortedPlayers.forEach((player, index) => {
-      output += `${index + 1}. ${player}\n`;
-    });
+    output += `### ${time} Time Slot (${activePlayers.length} players)\n\n`;
+    
+    if (activePlayers.length === 0) {
+      output += `No active players for this time slot.\n`;
+    } else {
+      // Sort the player list - this will group team members together by their team numbers
+      const sortedPlayers = activePlayers.sort((a, b) => {
+        // Extract team numbers if present
+        const aMatch = a.match(/\((\d+)\)$/); 
+        const bMatch = b.match(/\((\d+)\)$/);
+        
+        // If both have team numbers, sort by team number first
+        if (aMatch && bMatch) {
+          const aTeam = parseInt(aMatch[1]);
+          const bTeam = parseInt(bMatch[1]);
+          if (aTeam !== bTeam) return aTeam - bTeam;
+        }
+        
+        // If only one has a team number, put teams first
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+        
+        // Otherwise sort alphabetically
+        return a.localeCompare(b);
+      });
+      
+      sortedPlayers.forEach((player, index) => {
+        output += `${index + 1}. ${player}\n`;
+      });
+    }
     
     output += `\n`;
   });
@@ -527,16 +575,7 @@ export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): st
     });
   }
   
-  // Final player list
-  output += `## Final Player List (${result.finalPlayerList.length} players)\n\n`;
-  
-  if (result.finalPlayerList.length === 0) {
-    output += `No players signed up.\n`;
-  } else {
-    result.finalPlayerList.forEach((player, index) => {
-      output += `${index + 1}. ${player}\n`;
-    });
-  }
+  // Final player list section has been removed
   
   return output;
 }
