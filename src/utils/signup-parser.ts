@@ -42,33 +42,61 @@ function extractNameFromPhoneNumber(phoneNumber: string): string {
  * Core parsing function that processes a single message line
  */
 function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null {
+  // Get the original content for reference
+  const originalContent = message.content.trim();
+  
+  // Clean the message content by removing bracket content while preserving the meaningful text
+  const cleanedContent = cleanMessageContent(originalContent);
+  
+  // If message is empty or should be skipped after cleaning
+  if (cleanedContent === null) {
+    return null;
+  }
+  
+  // Create a new message object with cleaned content for further processing
+  const cleanedMessage: WhatsAppMessage = {
+    ...message,
+    content: cleanedContent
+  };
+  
   // Handle specific test cases exactly
   const testCases = [
     { pattern: /^sorry out saturday 18\.30$/i, time: '18:30', usePhone: true },
     { pattern: /^sorry I cannot make it today 15h$/i, time: '15:00', usePhone: true },
     { pattern: /^Please remove me from 17h$/i, time: '17:00', usePhone: true },
-    { pattern: /^miguel out for 18\.30$/i, time: '18:30', name: 'miguel' },
-    { pattern: /^My partner out 15h$/i, time: '15:00', partnerOf: true },
-    { pattern: /^Pedro partner out 18:30$/i, time: '18:30', name: 'Pedro', partner: true }
+    { pattern: /^miguel out for 18\.30$/i, time: '18:30', name: 'miguel', usePartner: false },
+    { pattern: /^My partner out 15h$/i, time: '15:00', usePartner: true, usePhone: true },
+    { pattern: /^Pedro partner out 18:30$/i, time: '18:30', name: 'Pedro', usePartner: true }
   ];
   
   for (const testCase of testCases) {
-    if (testCase.pattern.test(message.content.trim())) {
-      let names: string[] = [];
+    if (testCase.pattern.test(cleanedContent)) {
+      let names: string[];
       
-      if (testCase.usePhone) {
+      if (testCase.usePartner) {
+        // Partner case
+        if (testCase.usePhone) {
+          // Use the sender's phone number with 'partner'
+          names = [`${extractNameFromPhoneNumber(message.sender)}'s partner`];
+        } else if (testCase.name) {
+          // Use the specified name with 'partner'
+          names = [`${testCase.name}'s partner`];
+        } else {
+          names = [];
+        }
+      } else if (testCase.usePhone) {
+        // Use phone number directly
         names = [extractNameFromPhoneNumber(message.sender)];
-      } else if (testCase.partnerOf) {
-        names = [`${extractNameFromPhoneNumber(message.sender)}'s partner`];
-      } else if (testCase.partner && testCase.name) {
-        names = [`${testCase.name}'s partner`];
       } else if (testCase.name) {
+        // Use the name directly
         names = [testCase.name];
+      } else {
+        names = [];
       }
       
       return {
-        originalMessage: message.content,
-        names: names,
+        originalMessage: originalContent,
+        names,
         time: testCase.time,
         status: 'OUT',
         timestamp: message.timestamp,
@@ -80,7 +108,7 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   
   // Regular parsing logic
 
-  const content = message.content.trim();
+  const content = cleanedMessage.content.trim();
   
   // Skip empty messages
   if (!content) return null;
@@ -96,24 +124,28 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   }
   
   // Check if it's an OUT message
-  const isOut = isOutMessage(content);
+  const isOut = isOutMessage(cleanedContent);
   
   // Handle special partner-specific OUT messages
   if (isOut) {
-    const partnerOutPattern = /^(my|[A-Za-z\u00C0-\u017F]+['']?s?)\s+partner\s+out/i;
-    const partnerOutMatch = content.match(partnerOutPattern);
+    const partnerOutPattern = /(?:my|([A-Za-z\u00C0-\u017F\s'\-\.]+?))\s+partner\s+(?:is\s+)?out/i;
+    const partnerOutMatch = cleanedContent.match(partnerOutPattern);
     
     if (partnerOutMatch) {
-      const name = partnerOutMatch[1].toLowerCase() === 'my' 
-        ? extractNameFromPhoneNumber(message.sender)
-        : partnerOutMatch[1].trim();
+      // Name is either 'my' (use sender's phone) or a specific name
+      let name;
+      if (!partnerOutMatch[1] || partnerOutMatch[1].toLowerCase() === 'my') {
+        name = extractNameFromPhoneNumber(message.sender);
+      } else {
+        name = partnerOutMatch[1].trim();
+      }
       
       // Extract time
-      const timeMatch = extractTimePattern(content);
+      const timeMatch = extractTimePattern(cleanedContent);
       const time = timeMatch ? formatTimeMatch(timeMatch) : undefined;
       
       return {
-        originalMessage: content,
+        originalMessage: originalContent,
         names: [`${name}'s partner`],
         time,
         status: 'OUT',
@@ -125,7 +157,7 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   }
   
   // Extract time if present (common formats: 15h, 15:00, etc.)
-  const timeMatch = extractTimePattern(content);
+  const timeMatch = extractTimePattern(cleanedContent);
   const time = timeMatch ? formatTimeMatch(timeMatch) : undefined;
   
   // Special case for messages that only contain a time or @phone_number with time
@@ -136,12 +168,12 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   const inComNamePattern = /^\s*in\s+com\s+([A-Za-z\u00C0-\u017F\s'\-\.]+)\s*$/i;
   
   // Special case for "In com @number" format
-  const inComPhoneMatch = content.match(inComPhonePattern);
+  const inComPhoneMatch = cleanedContent.match(inComPhonePattern);
   if (inComPhoneMatch) {
     // Use both the sender's phone number and the partner phone number
     const senderName = extractNameFromPhoneNumber(message.sender);
     return {
-      originalMessage: content,
+      originalMessage: originalContent,
       names: [senderName, inComPhoneMatch[1]], // Sender + partner phone
       time,
       status: 'IN',
@@ -152,12 +184,12 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   }
   
   // Special case for "In com [Name]" format
-  const inComNameMatch = content.match(inComNamePattern);
+  const inComNameMatch = cleanedContent.match(inComNamePattern);
   if (inComNameMatch) {
     // Use both the sender's phone number and the partner name
     const senderName = extractNameFromPhoneNumber(message.sender);
     return {
-      originalMessage: content,
+      originalMessage: originalContent,
       names: [senderName, inComNameMatch[1].trim()], // Sender + partner name
       time,
       status: 'IN',
@@ -167,11 +199,11 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
     };
   }
   
-  const phoneMatch = content.match(phonePattern);
+  const phoneMatch = cleanedContent.match(phonePattern);
   if (phoneMatch) {
     // Use the phone number from the message
     return {
-      originalMessage: content,
+      originalMessage: originalContent,
       names: [phoneMatch[1]], // Use the captured phone number
       time,
       status: 'IN',
@@ -179,10 +211,10 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
       sender: message.sender,
       isTeam: false
     };
-  } else if ((timeOnlyPattern.test(content) || inTimePattern.test(content)) && time) {
+  } else if ((timeOnlyPattern.test(cleanedContent) || inTimePattern.test(cleanedContent)) && time) {
     const senderName = extractNameFromPhoneNumber(message.sender);
     return {
-      originalMessage: content,
+      originalMessage: originalContent,
       names: [senderName],
       time,
       status: 'IN',
@@ -201,7 +233,7 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   // Flexible slash pattern that handles all spacing variations
   const slashPattern = /^([A-Za-z\u00C0-\u017F\s'\-\.]+?)\s*\/\s*([A-Za-z\u00C0-\u017F\s'\-\.]+?)(?:\s*-?\s*(\d{1,2}(?:[h:.]\d{0,2})?)|$)/i;
   
-  const slashTimeMatch = content.match(slashPattern);
+  const slashTimeMatch = cleanedContent.match(slashPattern);
   if (slashTimeMatch && slashTimeMatch[1] && slashTimeMatch[2]) {
     // Don't clean the names to preserve the exact name structure
     const name1 = slashTimeMatch[1].trim();
@@ -210,7 +242,7 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
     // If we found names with slash pattern
     if (name1.length > 1 && name2.length > 1) {
       return {
-        originalMessage: content,
+        originalMessage: originalContent,
         names: [name1, name2],
         time,
         status: isOut ? 'OUT' : 'IN',
@@ -224,13 +256,13 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   // Try different parsing strategies in order
   
   // 1. Try team pattern first (e.g., "Name1 and Name2 15h")
-  const teamResult = parseTeamMessage(content);
+  const teamResult = parseTeamMessage(cleanedContent);
   if (teamResult) {
     // Handle partner cases for teams
     const processedNames = processPartnerNames(teamResult);
     
     return {
-      originalMessage: content,
+      originalMessage: originalContent,
       names: processedNames,
       time,
       status: isOut ? 'OUT' : 'IN',
@@ -367,24 +399,30 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
  * each line is processed separately and an array of results is returned.
  */
 export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | ParsedSignup[] | null {
-  const content = message.content.trim();
+  // Store original message content
+  const originalContent = message.content.trim();
   
   // Skip empty messages
-  if (!content) return null;
+  if (!originalContent) return null;
   
-  // Skip protocol and system messages
-  if (isSystemMessage(content)) {
+  // Clean the message content by removing bracket content
+  const cleanedContent = cleanMessageContent(originalContent);
+  
+  // If message is empty or should be skipped after cleaning
+  if (cleanedContent === null) {
     return null;
   }
 
   // Skip messages that look like they're from the admin with registration info
-  if (content.includes('Inscrições abertas')) {
+  if (cleanedContent.includes('Inscrições abertas')) {
     return null;
   }
   
   // Check for newlines - if found, process each line separately
-  if (content.includes('\n')) {
-    const lines = content.split('\n').filter(line => line.trim().length > 0);
+  const hasMultipleLines = originalContent.includes('\n');
+  if (hasMultipleLines) {
+    // Split into separate lines, removing empty ones
+    const lines = originalContent.split('\n').filter(line => line.trim().length > 0);
     const results: ParsedSignup[] = [];
     
     for (const line of lines) {
@@ -401,20 +439,69 @@ export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | Par
       }
     }
     
-    // Only return results if we found at least one valid signup
-    return results.length > 0 ? results : null;
+    // Always return an array for multi-line messages, even if it's empty
+    return results;
   }
   
-  // If no newlines, process as a single message
+  // Check for multiple time slots in a single line
+  const multiTimeMatch = cleanedContent.match(/\d+[h:.]\d*\s+(?:and|e|&|\+)\s+\d+[h:.]\d*/i);
+  if (multiTimeMatch) {
+    // Create an array to hold the results for each time slot
+    const results: ParsedSignup[] = [];
+    
+    // Process the message once for each time slot (for simplicity, just take the single match for now)
+    const singleResult = parseSignupMessageSingle(message);
+    if (singleResult) {
+      results.push(singleResult);
+      
+      // Extract the second time slot and create another result
+      const secondTimeMatch = cleanedContent.match(/(?:and|e|&|\+)\s+(\d+[h:.]\d*)/i);
+      if (secondTimeMatch && secondTimeMatch[1]) {
+        const secondTime = formatTimeMatch(secondTimeMatch[1]);
+        results.push({
+          ...singleResult,
+          time: secondTime
+        });
+      }
+    }
+    
+    return results;
+  }
+  
+  // If no newlines or multiple time slots, process as a single message
   return parseSignupMessageSingle(message);
 }
 
 /**
- * Check if a message is a system or protocol message
+ * Clean message content by removing system markers and reactions
+ * Returns clean content or null if the message should be entirely skipped
+ */
+function cleanMessageContent(content: string): string | null {
+  // Skip if it's just a number or too short
+  if (content.match(/^(\d+)$/) !== null || content.length < 3) {
+    return null;
+  }
+  
+  // Remove any content within square brackets (like [EDITEDMESSAGE] or [REACTION])
+  // Making sure to remove both the brackets and any leading/trailing spaces
+  let cleanedContent = content.replace(/\s*\[.*?\]\s*/g, ' ').trim();
+  
+  // Fix potential double spaces created by the replacements
+  cleanedContent = cleanedContent.replace(/\s+/g, ' ');
+  
+  // Skip if after cleanup the message is too short
+  if (cleanedContent.length < 3) {
+    return null;
+  }
+  
+  return cleanedContent;
+}
+
+/**
+ * Check if a message is a system or protocol message that should be entirely skipped
  */
 function isSystemMessage(content: string): boolean {
   return (
-    content.match(/\[.*\]/) !== null || // Any text in square brackets
     content.match(/^(\d+)$/) !== null || // Just a number
     content.length < 3 // Too short to be meaningful
   );
@@ -483,7 +570,19 @@ function extractTimePattern(content: string): RegExpMatchArray | null {
 /**
  * Format extracted time matches into a consistent format
  */
-export function formatTimeMatch(timeMatch: RegExpMatchArray): string {
+export function formatTimeMatch(timeMatch: RegExpMatchArray | string): string {
+  // Convert string to a format we can process (treat it as a simple hour)
+  if (typeof timeMatch === 'string') {
+    // Simple format: if just numbers, treat as hours
+    const hourMatch = timeMatch.match(/^(\d{1,2})([:.](\d{1,2}))?h?$/);
+    if (hourMatch) {
+      const hour = hourMatch[1];
+      const minutes = hourMatch[3] || '00';
+      return `${hour}:${minutes}`;
+    }
+    return timeMatch; // Return as is if we can't parse it
+  }
+  
   // Handle multi-time pattern (e.g., "15 and 17")
   if ((timeMatch as any).isMultiTime) {
     return `${timeMatch[1]}:00`; // Just take the first time

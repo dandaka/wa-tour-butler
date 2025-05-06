@@ -491,6 +491,40 @@ describe('Signup Parser', () => {
       expect(result?.time).toBe('18:30');
     });
 
+    it('should correctly parse messages with multiple time slots', () => {
+      const message = createMessage('Patrik in 15 and 17');
+      const rawResult = parseSignupMessage(message);
+      const result = getSingleResult(rawResult);
+      
+      expect(result).not.toBeNull();
+      expect(result?.names).toHaveLength(1);
+      expect(result?.names[0]).toBe('Patrik');
+      
+      // Should capture only the first time slot
+      expect(result?.time).toBe('15:00');
+    });
+    
+    it('should parse messages with reaction markers', () => {
+      // Messages with reaction markers like [EDITEDMESSAGE] should still be parsed
+      const messageWithReaction = createMessage('[EDITEDMESSAGE] Miguel e João 15h');
+      const rawResult = parseSignupMessage(messageWithReaction);
+      const result = getSingleResult(rawResult);
+      
+      expect(result).not.toBeNull();
+      expect(result?.names).toContain('Miguel');
+      expect(result?.names).toContain('João');
+      expect(result?.time).toBe('15:00');
+      
+      // Test with variation where the reaction is at the end
+      const messageWithEndReaction = createMessage('Rafael e André 16h [REACTION]');
+      const result2 = getSingleResult(parseSignupMessage(messageWithEndReaction));
+      
+      expect(result2).not.toBeNull();
+      expect(result2?.names).toContain('Rafael');
+      expect(result2?.names).toContain('André');
+      expect(result2?.time).toBe('16:00');
+    });
+
     /**
      * Test for handling multiple time slots
      */
