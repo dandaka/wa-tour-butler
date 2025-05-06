@@ -5,28 +5,13 @@
  * extracting player names, time slots, and signup status (IN/OUT).
  */
 
-/**
- * Types for the parser
- */
-export interface WhatsAppMessage {
-  id?: string;
-  chat_id?: string;
-  sender: string;
-  timestamp: number;
-  content: string;
-  is_from_me?: number;
-}
+// Import types from central types directory
+import { WhatsAppMessage } from '../types/messages';
+import { ParsedSignup } from '../types/signups';
 
-export interface ParsedSignup {
-  originalMessage: string;
-  names: string[];
-  time?: string;
-  status: 'IN' | 'OUT';
-  timestamp: number;
-  sender: string;
-  teamNumber?: number; // Team number for teams (1, 2, 3, etc.)
-  isTeam: boolean; // Flag to indicate if this signup represents a team
-}
+// Re-export types for backward compatibility
+export { WhatsAppMessage } from '../types/messages';
+export { ParsedSignup } from '../types/signups';
 
 /**
  * Extract a user-friendly name from a WhatsApp phone number
