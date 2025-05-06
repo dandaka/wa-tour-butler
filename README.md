@@ -32,13 +32,13 @@ pnpm run fetch-history
 ### Monitoring Messages from Groups
 ```bash
 # Monitor messages from all configured groups
-pnpm run monitor-messages
+pnpm run start
 
 # Monitor messages with a specific date filter
-pnpm run monitor-messages --since=2023-10-01
+pnpm run start --since=2023-10-01
 
 # Monitor messages from a specific group
-pnpm run monitor-messages --group-id=120363028202164779@g.us
+pnpm run start --group-id=120363028202164779@g.us
 ```
 
 ### Processing Signup Messages

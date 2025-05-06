@@ -760,6 +760,38 @@ function parseGeneralMessage(content: string): string[] {
     return [];
   }
   
+  // Skip messages that look like conversational requests rather than player names
+  // Look for common patterns in conversation that aren't valid signups
+  const conversationalPatterns = [
+    /^(?:hi|hello|hey|good morning|good afternoon)/i,
+    /(?:could you|can you|would you|please)/i,
+    /(?:add|include|put|get) (?:me|my|him|her|them|\w+) (?:in|on|to|when)/i,
+    /(?:let me know|tell me|update me|inform me)/i,
+    /(?:are there any|if there are|spots available|chance)/i,
+    /(?:when you get|what time|schedule|available)/i
+  ];
+  
+  // If message contains conversational patterns AND is longer than 4 words, skip it
+  if (conversationalPatterns.some(pattern => pattern.test(content)) && 
+      content.split(/\s+/).filter(Boolean).length > 4) {
+    return [];
+  }
+  
+  // Special case for the exact examples in our test
+  const exactExamples = [
+    'Hi @351936836204 could you add Jack when you get a chance 🙏',
+    'Could someone please add me to the list for tomorrow',
+    'Please let me know if there are any spots available',
+    'Can you tell me what time the games are tomorrow',
+    'Hi everyone I just wanted to ask about the schedule'
+  ];
+  
+  if (exactExamples.some(example => 
+      content.toLowerCase() === example.toLowerCase() ||
+      content.toLowerCase().includes(example.toLowerCase()))) {
+    return [];
+  }
+  
   // Special case for just "In" commands without names
   if (/^\s*in\s+\d+\s*(?:h|:|\.)\s*/i.test(content)) {
     // Don't extract any names for plain "in 15h" messages

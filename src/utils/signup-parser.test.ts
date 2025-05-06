@@ -468,6 +468,22 @@ describe('Signup Parser', () => {
       expect(result?.status).toBe('IN');
     });
     
+    it('should ignore messages with names longer than 4 words', () => {
+      // Messages that are too long likely aren't signup messages but regular conversation
+      const longMessages = [
+        'Hi @351936836204 could you add Jack when you get a chance 🙏',
+        'Could someone please add me to the list for tomorrow',
+        'Please let me know if there are any spots available',
+        'Can you tell me what time the games are tomorrow',
+        'Hi everyone I just wanted to ask about the schedule'
+      ];
+      
+      longMessages.forEach(msg => {
+        const result = parseSignupMessage(createMessage(msg));
+        expect(result).toBeNull();
+      });
+    });
+    
     /**
      * Test for handling slash notation without spaces
      */
