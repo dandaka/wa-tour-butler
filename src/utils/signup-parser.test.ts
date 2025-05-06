@@ -137,6 +137,16 @@ describe('Signup Parser', () => {
       expect(result?.names).toContain('Dani');
       expect(result?.isTeam).toBe(true);
     });
+
+    it('should parse team messages with "and" and numeric time without h', () => {
+      const rawResult = parseSignupMessage(createMessage('Niklas and leo in 15'));
+      const result = getSingleResult(rawResult);
+      expect(result).not.toBeNull();
+      expect(result?.names).toEqual(['Niklas', 'leo']);
+      expect(result?.time).toBe('15:00');
+      expect(result?.status).toBe('IN');
+      expect(result?.isTeam).toBe(true);
+    });
   
     it('should parse team messages with "com" as team delimiter', () => {
       const rawResult = parseSignupMessage(createMessage('Rudi com Dani 15h'));

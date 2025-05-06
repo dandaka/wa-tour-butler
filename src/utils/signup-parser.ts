@@ -704,7 +704,12 @@ function parseTeamMessage(content: string): string[] | null {
     name2 = name2.replace(/\s+at\b/i, ''); // Remove 'at' from second name
     
     // Remove time information from the second name if present
-    name2 = name2.replace(/\s+\d+[h:.\s]\d*\s*$/i, ''); // Remove time pattern at end
+    // First try to remove standard time patterns (with h, :, etc.)
+    name2 = name2.replace(/\s+\d+[h:.\s]\d*\s*$/i, '');
+    
+    // Also remove plain numbers that might be time references (like '15' in 'leo in 15')
+    name2 = name2.replace(/\s+in\s+(\d{1,2})\s*$/i, '');
+    name2 = name2.replace(/\s+(\d{1,2})\s*$/i, ''); // Remove any standalone numbers at the end
     
     // Special case for "Name+partner" or "Name & partner"
     if (name2.toLowerCase() === 'partner') {
