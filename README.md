@@ -9,7 +9,7 @@ A WhatsApp bot built with Baileys that helps organize padel tournaments in Whats
 - Message syncing to SQLite database with time-based filtering
 - Chronological message viewing (oldest first by default)
 - Standardized timestamp format (YYYY-MM-DD HH:MM:SS)
-- Read and store messages from specific WhatsApp groups
+- Read and monitor messages from specific WhatsApp groups
 
 ## Running the Application
 
@@ -20,16 +20,25 @@ A WhatsApp bot built with Baileys that helps organize padel tournaments in Whats
 
 ## Usage Examples
 
-### Storing Messages from Groups
+### Fetching Message History
 ```bash
-# Store messages from all configured groups
-pnpm run store-messages
+# Request history sync from WhatsApp (last 24 hours)
+pnpm run fetch-history
 
-# Store messages with a specific date filter
-pnpm run store-messages --since=2023-10-01
+# The script will exit immediately after sending the request
+# Your always-on WebSocket handler will process the history when it arrives
+```
 
-# Store messages from a specific group
-pnpm run store-messages --group-id=120363028202164779@g.us
+### Monitoring Messages from Groups
+```bash
+# Monitor messages from all configured groups
+pnpm run monitor-messages
+
+# Monitor messages with a specific date filter
+pnpm run monitor-messages --since=2023-10-01
+
+# Monitor messages from a specific group
+pnpm run monitor-messages --group-id=120363028202164779@g.us
 ```
 
 ### Processing Signup Messages
@@ -78,6 +87,7 @@ pnpm run dev
 - `pnpm run start` - Start the built application
 - `pnpm run watch` - Build and watch for changes
 - `pnpm run whatsapp-login` - Connect to WhatsApp Web and create session files
+- `pnpm run fetch-history` - Send a request to WhatsApp to sync message history for the past day
 - `pnpm run parse-all` - Process signup messages from all configured groups (defined in groups.csv)
 - `pnpm run view-messages` - Display messages from the target group in chronological order
   - Optional parameters: `--newest-first`, `--limit=10`
