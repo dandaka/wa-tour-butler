@@ -1,5 +1,5 @@
 import { formatOutput } from './process-signups';
-import { ParsedSignup } from '../utils/signup-parser';
+import { ParsedSignup, GroupInfo, ProcessingResult } from '../types/signups';
 
 // Define Jest globals to avoid type errors
 declare const describe: (name: string, fn: () => void) => void;
@@ -7,23 +7,7 @@ declare const it: (name: string, fn: () => void) => void;
 declare const expect: any;
 declare const beforeEach: (fn: () => void) => void;
 
-// Add TypeScript interfaces to match the ones in the main file
-interface GroupInfo {
-  id: string;
-  name: string;
-  admin: string;
-  tournamentTime?: string;
-  signupStartTime?: string;
-  maxTeams?: number;
-}
-
-interface ProcessingResult {
-  registrationOpenMessage?: any;
-  signups: ParsedSignup[];
-  processedSignups?: any[];
-  finalPlayerList: string[];
-  outPlayersByTimeSlot: Record<string, string[]>;
-}
+// Use types from central types directory
 
 // Mock data for testing
 const mockRegistrationMessage = {

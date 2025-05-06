@@ -7,7 +7,8 @@ declare const it: (name: string, fn: () => void) => void;
 declare const expect: any;
 
 // Import necessary types, but mock actual database and file operations
-import { WhatsAppMessage } from '../utils/signup-parser';
+import { WhatsAppMessage } from '../types/messages';
+import { ParsedSignup, GroupInfo, ProcessingResult } from '../types/signups';
 
 // Add the private exported function for testing
 // This is what we're testing specifically
@@ -201,7 +202,6 @@ describe('Registration Opening Detection', () => {
 
 // Import the actual functions from process-signups.ts to test our OUT handling logic
 import { processMessages, formatOutput } from './process-signups';
-import { ParsedSignup } from '../utils/signup-parser';
 
 describe('OUT Player Handling', () => {
   // Mock types to test with
