@@ -66,8 +66,8 @@ const upsertContact = db.prepare(`
 async function startMessageStorage() {
   console.log('Starting WhatsApp message storage service...');
 
-  // Use the auth state
-  const { state, saveCreds } = await useMultiFileAuthState('./auth_info_baileys');
+  // Use the auth state - using the same directory as whatsappLogin.ts
+  const { state, saveCreds } = await useMultiFileAuthState('./session');
   
   // Fetch latest version
   const { version } = await fetchLatestBaileysVersion();
