@@ -342,7 +342,7 @@ function processMessages(messages: Message[], groupInfo: GroupInfo, forceRegistr
 }
 
 // Format the output for logging
-function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): string {
+export function formatOutput(result: ProcessingResult, groupInfo: GroupInfo): string {
   let output = `# Signup Processing for ${groupInfo.name}\n\n`;
   
   // Registration info
