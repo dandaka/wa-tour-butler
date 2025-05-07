@@ -234,8 +234,8 @@ export class ParserPipeline {
             const name1 = match[1].trim();
             const name2 = `${name1}'s partner`;
             
-            result.players.push({ name: name1, displayName: name1 });
-            result.players.push({ name: name2, displayName: name2 });
+            result.players.push({ name: name1 });
+            result.players.push({ name: name2 });
             result.isTeam = true;
             foundPlayers = true;
           }
@@ -250,8 +250,8 @@ export class ParserPipeline {
             // Clean up time pattern and 'in' word
             name2 = name2.replace(/\s+in\s+\d{1,2}[:.h]?\d{0,2}$|\s+\d{1,2}[:.h]?\d{0,2}$|\s+in$/i, '');
             
-            result.players.push({ name: name1, displayName: name1 });
-            result.players.push({ name: name2, displayName: name2 });
+            result.players.push({ name: name1 });
+            result.players.push({ name: name2 });
             result.isTeam = true;
             foundPlayers = true;
           }
@@ -295,8 +295,8 @@ export class ParserPipeline {
             const name1 = match[1].trim();
             const name2 = `${name1}'s partner`;
             
-            result.players.push({ name: name1, displayName: name1 });
-            result.players.push({ name: name2, displayName: name2 });
+            result.players.push({ name: name1 });
+            result.players.push({ name: name2 });
             result.isTeam = true;
             foundPlayers = true;
           }
@@ -308,8 +308,8 @@ export class ParserPipeline {
             const name1 = match[1].trim();
             let name2 = match[2].trim();
             
-            result.players.push({ name: name1, displayName: name1 });
-            result.players.push({ name: name2, displayName: name2 });
+            result.players.push({ name: name1 });
+            result.players.push({ name: name2 });
             result.isTeam = true;
             foundPlayers = true;
           }
@@ -342,7 +342,7 @@ export class ParserPipeline {
           name = name.replace(/\s+in$|\s+out$/i, '').trim();
           
           if (name.length > 0) {
-            result.players.push({ name, displayName: name });
+            result.players.push({ name });
             foundPlayers = true;
             
             // If not explicitly set as OUT, treat as IN

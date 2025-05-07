@@ -23,7 +23,7 @@ export enum MessageCommand {
 export interface PlayerInfo {
   phoneNumber?: string;
   name?: string;
-  displayName: string; // Combined representation for output
+  displayName?: string; // Optional now to avoid duplication
 }
 
 /**
