@@ -2,7 +2,7 @@
   {
     "ID": "351915435544-1593092500@g.us",
     "Name": "Sao Bento Mix",
-    "Admin": "351936836204@s.whatsapp.net",
+    "Admins": ["351936836204@s.whatsapp.net"],
     "TournamentTime": "",
     "SignupStartTime": "0 19 * * 1",
     "MaxTeams": "14"
@@ -10,7 +10,7 @@
   {
     "ID": "120363028202164779@g.us",
     "Name": "Sao Bento P4ALL Saturday",
-    "Admin": "351936836204@s.whatsapp.net",
+    "Admins": ["351936836204@s.whatsapp.net"],
     "TournamentTime": "",
     "SignupStartTime": "0 19 * * 1",
     "MaxTeams": "14",
@@ -30,7 +30,7 @@
   {
     "ID": "351919755889-1528547030@g.us",
     "Name": "Kia4all - 6ªf - 19h - M3",
-    "Admin": "351916949231@s.whatsapp.net",
+    "Admins": ["351916949231@s.whatsapp.net"],
     "TournamentTime": "",
     "SignupStartTime": "0 16 * * 1",
     "MaxTeams": "8"
@@ -38,7 +38,7 @@
   {
     "ID": "120363359028090556@g.us",
     "Name": "Sunday Ironman 13h30 - 15h30",
-    "Admin": "351936836204@s.whatsapp.net",
+    "Admins": ["351936836204@s.whatsapp.net"],
     "TournamentTime": "",
     "SignupStartTime": "0 16 * * 1",
     "MaxTeams": "14"
@@ -46,7 +46,7 @@
   {
     "ID": "351919755889-1635955006@g.us",
     "Name": "Dom19h Saldanha P4ALL M4+",
-    "Admin": "351916949231@s.whatsapp.net",
+    "Admins": ["351916949231@s.whatsapp.net"],
     "TournamentTime": "",
     "SignupStartTime": "0 14 * * 3",
     "MaxTeams": "8"

@@ -3,12 +3,15 @@
  * Parses WhatsApp messages to extract player registrations for tournaments
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
 
 // Import types from the types directory
-import { WhatsAppMessage } from '../types/messages';
-import { Contact, Player, ParsedRegistration } from '../types/parser';
+import { WhatsAppMessage } from "../types/messages";
+import { Contact, Player, ParsedRegistration } from "../types/parser";
+import { GroupInfo } from "../types/group-info";
+
+// Import registration start detection
+import { detectRegistrationStart } from "./registration-start-detect";
 
 /**
  * Loads WhatsApp messages from a JSON file
@@ -17,7 +20,7 @@ import { Contact, Player, ParsedRegistration } from '../types/parser';
  */
 export function loadMessages(filePath: string): WhatsAppMessage[] {
   try {
-    const fileContent = fs.readFileSync(filePath, 'utf8');
+    const fileContent = fs.readFileSync(filePath, "utf8");
     const messages = JSON.parse(fileContent);
     return Array.isArray(messages) ? messages : [];
   } catch (error) {
@@ -33,13 +36,13 @@ export function loadMessages(filePath: string): WhatsAppMessage[] {
  */
 export function loadContacts(filePath: string): Contact[] {
   try {
-    const fileContent = fs.readFileSync(filePath, 'utf8');
+    const fileContent = fs.readFileSync(filePath, "utf8");
     const contactsObj = JSON.parse(fileContent);
-    
+
     // Convert the object format to an array of Contact objects
     return Object.entries(contactsObj).map(([phoneNumber, name]) => ({
       phoneNumber,
-      name: name as string
+      name: name as string,
     }));
   } catch (error) {
     console.error(`Error loading contacts: ${error}`);
@@ -47,4 +50,29 @@ export function loadContacts(filePath: string): Contact[] {
   }
 }
 
-
+/**
+ * Simple test function for registration parsing
+ * @param messagesFilePath Path to messages JSON file
+ * @param groupInfoFilePath Path to group info JSON file
+ * @param groupId ID of the group to parse
+ * @returns Result of the registration start detection
+ */
+export function parseTest(messagesFilePath: string, groupInfoFilePath: string, groupId: string) {
+  // Step 1: Load messages
+  const messages = loadMessages(messagesFilePath);
+  
+  // Step 2: Load group info
+  const groupsData = JSON.parse(fs.readFileSync(groupInfoFilePath, 'utf8'));
+  const groupInfo = groupsData.find((g: GroupInfo) => g.ID === groupId);
+  
+  if (!groupInfo) {
+    console.error(`Group with ID ${groupId} not found in group info file`);
+    return { found: false, timestamp: 0 };
+  }
+  
+  // Step 3: Use detectRegistrationStart function
+  const registrationStart = detectRegistrationStart(messages, groupInfo);
+  
+  // Step 4: Return the result
+  return registrationStart;
+}
