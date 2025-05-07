@@ -1,7 +1,7 @@
 ## Parser logic explanation
 
 1. Find registration opened message ✅
-2. Find time of registration closing
+2. Find time of registration closing ✅
 3. Select only messages between registration opened and closed
 4. Detect system messages
 5. Remove system messages
