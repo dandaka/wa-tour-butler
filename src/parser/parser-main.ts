@@ -67,11 +67,11 @@ export function parseTest(messagesFilePath: string, groupInfoFilePath: string, g
   
   if (!groupInfo) {
     console.error(`Group with ID ${groupId} not found in group info file`);
-    return { found: false, timestamp: 0 };
+    return { success: false };
   }
   
   // Step 3: Use detectRegistrationStart function
-  const registrationStart = detectRegistrationStart(messages, groupInfo);
+  const registrationStart = detectRegistrationStart(messages, groupInfo, 0);
   
   // Step 4: Return the result
   return registrationStart;
