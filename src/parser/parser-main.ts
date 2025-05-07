@@ -73,6 +73,21 @@ export function parseTest(messagesFilePath: string, groupInfoFilePath: string, g
   // Step 3: Use detectRegistrationStart function
   const registrationStart = detectRegistrationStart(messages, groupInfo, 0);
   
-  // Step 4: Return the result
-  return registrationStart;
+  // Step 4: Create a comprehensive result object
+  const fullResult = {
+    // Include group info
+    groupInfo: groupInfo,
+    
+    // Include the registration open message (if found)
+    registrationMessage: registrationStart.success ? registrationStart.message : null,
+    
+    // Include all messages
+    allMessages: messages,
+    
+    // Include the original parsing result
+    parsingResult: registrationStart
+  };
+  
+  // Step 5: Return the full result
+  return fullResult;
 }

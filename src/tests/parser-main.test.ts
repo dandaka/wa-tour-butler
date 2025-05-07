@@ -27,32 +27,16 @@ describe('Parser Main', () => {
 
   // Test that the parser can detect registration messages
   test('should detect registration message and write to result.json', () => {
-    // Debug: Read messages file directly for inspection
+    // Debug: Read messages file directly for inspection - only for test verification
     const messages = JSON.parse(fs.readFileSync(messagesFilePath, 'utf8'));
     
-    // Find potential registration messages
-    const registrationKeywords = ['inscrições', 'abertas', 'registration', 'open'];
-    const potentialRegMessages = messages.filter((msg: any) => {
-      const content = msg.content.toLowerCase();
-      return registrationKeywords.some(keyword => content.includes(keyword.toLowerCase()));
-    });
+    // Call the parseTest function - which now returns the comprehensive result
+    const fullResult = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
     
-    console.log('Found', potentialRegMessages.length, 'potential registration messages');
-    potentialRegMessages.forEach((msg: any, idx: number) => {
-      console.log(`Msg ${idx + 1}:`, msg.content.substring(0, 40), '... from', msg.sender);
-    });
-    
-    // Debug: Log group info
-    const groupInfo = groupsData.find((g: any) => g.ID === targetGroupId);
-    console.log('Group Admin IDs:', groupInfo.Admins);
-    
-    // Call the parseTest function
-    const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
-    
-    // Write the result to the result.json file
+    // Write the comprehensive result to the result.json file
     fs.writeFileSync(
       resultFilePath, 
-      JSON.stringify(result, null, 2),
+      JSON.stringify(fullResult, null, 2),
       'utf8'
     );
     
@@ -71,11 +55,12 @@ describe('Parser Main', () => {
     // 1. There's no registration message in the test data
     // 2. The detection logic failed
     // 3. The admin IDs don't match the sender of registration messages
-    expect(resultContent.success).toBe(true);
+    expect(resultContent.parsingResult.success).toBe(true);
     
-    if (resultContent.success) {
-      expect(resultContent.timestamp).toBeGreaterThan(0);
-      expect(resultContent.message).toBeDefined();
+    if (resultContent.parsingResult.success) {
+      expect(resultContent.parsingResult.timestamp).toBeGreaterThan(0);
+      expect(resultContent.parsingResult.message).toBeDefined();
+      expect(resultContent.registrationMessage).toBeDefined();
     }
     
   });
