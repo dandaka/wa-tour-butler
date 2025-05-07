@@ -49,4 +49,5 @@ export interface GroupInfo {
   tournamentTime?: string;
   signupStartTime?: string;
   maxTeams?: number;
+  batches?: string[];
 }

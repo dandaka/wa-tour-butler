@@ -13,6 +13,7 @@ import { ParserPipeline } from '../pipeline/parser-pipeline';
 import { MsgParsed, MessageCommand } from '../types/message-parsing';
 import { findRegistrationOpeningMessage, filterMessagesAfterRegistration } from '../pipeline/registration-parser';
 import { GroupInfo } from '../types/signups';
+import { findGroupInCsv } from '../utils/csv-reader';
 
 // Paths for test data
 const TEST_DATA_DIR = path.join(process.cwd(), 'data', 'test-data');
@@ -20,10 +21,10 @@ const DEFAULT_INPUT = path.join(TEST_DATA_DIR, '120363028202164779-messages.json
 const DEFAULT_CONTACTS = path.join(TEST_DATA_DIR, 'contacts.json');
 const DEFAULT_OUTPUT = path.join(TEST_DATA_DIR, 'result.json');
 const DEFAULT_REPORT = path.join(TEST_DATA_DIR, 'parser-test-report.md');
+const GROUPS_CSV_PATH = path.join(process.cwd(), 'groups.csv');
 
-// Default admin ID and cron schedule if not provided
-const DEFAULT_ADMIN_ID = '351936836204@s.whatsapp.net'; // Adjust based on your data
-const DEFAULT_SIGNUP_START_TIME = '0 15 * * 0'; // Example: Every Sunday at 3pm
+// Default group ID if not provided
+const DEFAULT_GROUP_ID = '120363028202164779@g.us'; // Sao Bento P4ALL Saturday
 
 // Load messages
 function loadMessages(filePath: string): any[] {
@@ -123,15 +124,36 @@ async function main() {
   // Parse command line arguments
   const args = process.argv.slice(2);
   const inputFile = args[0] || DEFAULT_INPUT;
-  const adminId = args[1] || DEFAULT_ADMIN_ID;
-  const signupStartTime = args[2] || DEFAULT_SIGNUP_START_TIME;
-  const groupId = args[3] || '120363028202164779@g.us';
-  const groupName = args[4] || 'Test Group';
+  const groupId = args[1] || DEFAULT_GROUP_ID;
+  
+  // Try to get group info from CSV first
+  console.log(`Looking for group ${groupId} in ${GROUPS_CSV_PATH}...`);
+  let groupInfo = findGroupInCsv(groupId, GROUPS_CSV_PATH);
+  
+  if (!groupInfo) {
+    console.warn(`Group ${groupId} not found in CSV. Using default values.`);
+    groupInfo = {
+      id: groupId,
+      name: 'Default Group',
+      admin: '351936836204@s.whatsapp.net',
+      signupStartTime: '0 15 * * 0'
+    };
+  } else {
+    console.log(`Found group in CSV: ${groupInfo.name}`);
+    console.log(`Admin: ${groupInfo.admin}`);
+    console.log(`Signup start time: ${groupInfo.signupStartTime}`);
+    if (groupInfo.batches) {
+      console.log(`Batches: ${groupInfo.batches.join(', ')}`);
+    }
+    if (groupInfo.maxTeams) {
+      console.log(`Max teams: ${groupInfo.maxTeams}`);
+    }
+  }
   
   console.log(`Testing registration parser with:`);
   console.log(`- Messages from: ${inputFile}`);
-  console.log(`- Admin ID: ${adminId}`);
-  console.log(`- Signup Start Time: ${signupStartTime}`);
+  console.log(`- Group ID: ${groupId}`);
+  console.log(`- Group Name: ${groupInfo.name}`);
   
   // Load messages
   console.log(`Loading messages from: ${inputFile}`);
@@ -145,13 +167,7 @@ async function main() {
   console.log('Processing messages through main pipeline...');
   const parsedMessages = pipeline.processMessages(rawMessages);
   
-  // Create group info
-  const groupInfo: GroupInfo = {
-    id: groupId,
-    name: groupName,
-    admin: adminId,
-    signupStartTime: signupStartTime
-  };
+  // Group info is already loaded from CSV
   
   // Find registration opening message
   console.log('Finding registration opening message...');
@@ -180,7 +196,11 @@ async function main() {
     registrationMessage,
     messagesBeforeFiltering: parsedMessages.length,
     messagesAfterFiltering: filteredMessages.length,
-    filteredMessages: finalMessages
+    filteredMessages: finalMessages,
+    metadata: {
+      batches: groupInfo.batches || [],
+      maxTeams: groupInfo.maxTeams || 0
+    }
   };
   
   // Save results
