@@ -94,9 +94,10 @@ async function fetchGroupIds() {
   } catch (error) {
     console.error('Error fetching groups:', error);
   } finally {
-    // Always close the connection
-    await sock.logout();
-    console.log('Logged out from WhatsApp');
+    // Just exit the process without logging out
+    // This preserves the WhatsApp session for other scripts
+    console.log('Completed fetching group IDs.');
+    process.exit(0);
   }
 }
 
