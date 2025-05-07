@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Registration Parser Test
  * 
@@ -22,7 +21,8 @@ const DEFAULT_INPUT = path.join(TEST_DATA_DIR, '120363028202164779-messages.json
 const DEFAULT_CONTACTS = path.join(TEST_DATA_DIR, 'contacts.json');
 const DEFAULT_OUTPUT = path.join(TEST_DATA_DIR, 'result.json');
 const DEFAULT_REPORT = path.join(TEST_DATA_DIR, 'parser-test-report.md');
-const GROUPS_CSV_PATH = path.join(process.cwd(), 'groups.csv');
+// Load group data from JSON file instead of CSV
+const GROUPS_JSON_PATH = path.join(process.cwd(), 'groups.json');
 
 // Default group ID if not provided
 const DEFAULT_GROUP_ID = '120363028202164779@g.us'; // Sao Bento P4ALL Saturday
@@ -44,70 +44,6 @@ function saveResults(results: any, filePath: string): void {
   console.log(`Saved results to: ${filePath}`);
 }
 
-// Generate report
-function generateReport(
-  originalMessages: MsgParsed[],
-  filteredMessages: MsgParsed[],
-  registrationMessage: MsgParsed | null,
-  groupInfo: GroupInfo,
-  outputPath: string
-): void {
-  const messagesRemoved = originalMessages.length - filteredMessages.length;
-  const percentageRemoved = Math.round((messagesRemoved / originalMessages.length) * 100);
-  
-  let report = `# Registration Parser Test Report
-Generated: ${new Date().toISOString()}
-
-## Test Configuration
-- Group ID: ${groupInfo.id}
-- Group Name: ${groupInfo.name}
-- Admin ID: ${groupInfo.admin}
-- Signup Start Time: ${groupInfo.signupStartTime || 'Not specified'}
-
-## Test Results
-- Total messages processed: ${originalMessages.length}
-- Messages after registration: ${filteredMessages.length}
-- Messages filtered out: ${messagesRemoved} (${percentageRemoved}%)
-`;
-
-  if (registrationMessage) {
-    report += `
-## Registration Opening Message Found
-- Timestamp: ${new Date(registrationMessage.timestamp * 1000).toISOString()}
-- Sender: ${registrationMessage.sender}
-- Content: "${registrationMessage.originalText}"
-`;
-  } else {
-    report += `
-## No Registration Opening Message Found
-Possible reasons:
-1. No message with registration keywords was found
-2. Admin ID might not match the actual sender of the registration message
-3. The cron schedule might not match when the registration was actually opened
-`;
-  }
-
-  // Add message samples
-  if (filteredMessages.length > 0) {
-    report += `
-## Message Samples After Registration
-`;
-
-    // Show the first 5 messages after registration
-    filteredMessages.slice(0, 5).forEach((msg, index) => {
-      report += `
-### Message #${index + 1}
-- Timestamp: ${new Date(msg.timestamp * 1000).toISOString()}
-- Sender: ${msg.sender}
-- Content: "${msg.originalText}"
-- Command: ${msg.modifier}
-`;
-    });
-  }
-
-  fs.writeFileSync(outputPath, report);
-  console.log(`Generated report at: ${outputPath}`);
-}
 
 // Main function
 async function main() {
@@ -117,11 +53,14 @@ async function main() {
   const groupId = args[1] || DEFAULT_GROUP_ID;
   
   // Try to get group info from CSV first
-  console.log(`Looking for group ${groupId} in ${GROUPS_CSV_PATH}...`);
-  let groupInfo = findGroupInCsv(groupId, GROUPS_CSV_PATH);
+  console.log(`Looking for group ${groupId} in ${GROUPS_JSON_PATH}...`);
+  // Load group info from JSON file
+  console.log(`Loading groups from ${GROUPS_JSON_PATH}...`);
+  const groupsData = JSON.parse(fs.readFileSync(GROUPS_JSON_PATH, 'utf8'));
+  const groupInfo = groupsData.find((g: GroupInfo) => g.id === groupId);
   
   if (!groupInfo) {
-    console.warn(`Group ${groupId} not found in CSV. Using default values.`);
+    console.warn(`Group ${groupId} not found in JSON. Using default values.`);
     groupInfo = {
       id: groupId,
       name: 'Default Group',

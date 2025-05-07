@@ -82,15 +82,5 @@ export const NAME_PATTERNS = {
   CLEANUP_WHITESPACE: /\s+/g
 };
 
-// Test Case Patterns
-export const TEST_CASES = [
-  { pattern: /^sorry out saturday 18\.30$/i, time: '18:30', usePhone: true },
-  { pattern: /^sorry I cannot make it today 15h$/i, time: '15:00', usePhone: true },
-  { pattern: /^Please remove me from 17h$/i, time: '17:00', usePhone: true },
-  { pattern: /^miguel out for 18\.30$/i, time: '18:30', name: 'miguel', usePartner: false },
-  { pattern: /^My partner out 15h$/i, time: '15:00', usePartner: true, usePhone: true },
-  { pattern: /^Pedro partner out 18:30$/i, time: '18:30', name: 'Pedro', usePartner: true }
-];
-
 // Max Words for Player Names
 export const MAX_NAME_WORDS = 4;
