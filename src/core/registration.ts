@@ -9,36 +9,83 @@
 import { WhatsAppMessage } from '../types/messages';
 import { containsTimePattern } from '../utils/date';
 import { REGISTRATION_KEYWORDS } from '../constants';
+import { GroupInfo } from '../types/signups';
+import { getLastScheduledRegistrationTime } from '../cron/cron-schedule';
+
+/**
+ * Determines if a message is a system message that should be ignored
+ * 
+ * @param content Message content to check
+ * @returns True if the message is a system message that should be ignored
+ */
+function isSystemMessage(content: string): boolean {
+  // Common system message patterns
+  const systemPatterns = [
+    /^\[SENDERKEYDISTRIBUTIONMESSAGE\]$/,
+    /^\[PROTOCOLMESSAGE\]$/,
+    /^\[MESSAGECONTEXTINFO\]$/,
+    /^\[REACTIONMESSAGE\]$/,
+    /^\[REVOKEDMESSAGE\]$/,
+    /^\[.*\]$/ // Any message that only contains text within brackets
+  ];
+  
+  // Check if the message matches any system pattern
+  return systemPatterns.some(pattern => pattern.test(content.trim()));
+}
 
 /**
  * Find the most recent registration opening message from the admin
  * 
  * @param messages Array of WhatsApp messages to search
- * @param adminId ID of the group admin
- * @returns The registration message if found, null otherwise
+ * @param adminId ID of the admin user who would open registrations
+ * @param groupInfo Optional group info containing cron schedule
+ * @param currentTime Optional current time for reference
+ * @returns The registration opening message, or null if not found
  */
 export function findRegistrationMessage(
-  messages: WhatsAppMessage[],
-  adminId: string
+  messages: WhatsAppMessage[], 
+  adminId: string,
+  groupInfo?: GroupInfo,
+  currentTime: Date = new Date()
 ): WhatsAppMessage | null {
   if (!messages || messages.length === 0) {
     return null;
   }
   
-  // Create a copy of messages and sort in reverse chronological order
-  // to find the most recent registration message first
-  const sortedMessages = [...messages].sort((a, b) => b.timestamp - a.timestamp);
+  // If group info is provided, get the last scheduled registration time
+  let scheduledTimestamp: number | null = null;
+  if (groupInfo) {
+    scheduledTimestamp = getLastScheduledRegistrationTime(groupInfo, currentTime);
+    console.log(`Last scheduled registration time: ${scheduledTimestamp ? new Date(scheduledTimestamp * 1000).toLocaleString() : 'None'}`);  
+  }
   
-  // Look for registration messages
-  for (const message of sortedMessages) {
+  // First filter messages to include only those from admin and after the scheduled time
+  const filteredMessages = messages.filter(message => {
     // Check if message is from admin (handle both formats with and without WhatsApp suffix)
     const isFromAdmin = message.sender === adminId || 
                        message.sender === `${adminId}@s.whatsapp.net`;
     
     if (!isFromAdmin) {
-      continue; // Skip messages not from admin
+      return false;
     }
     
+    // Skip system messages
+    if (isSystemMessage(message.content)) {
+      return false;
+    }
+    
+    // Filter by timestamp if we have a scheduled time
+    if (scheduledTimestamp && message.timestamp < scheduledTimestamp) {
+      return false;
+    }
+    
+    return true;
+  });
+  
+  console.log(`Found ${filteredMessages.length} messages from admin after scheduled time`);
+  
+  // Now look for registration keywords or time patterns in filtered messages
+  for (const message of filteredMessages) {
     const lowerContent = message.content.toLowerCase();
     
     // Check if message contains registration keywords
@@ -46,16 +93,11 @@ export function findRegistrationMessage(
       lowerContent.includes(keyword.toLowerCase())
     );
     
-    // Check for time pattern in message (15h, 15:00, etc.)
+    // Check if message mentions a time
     const hasTimePattern = containsTimePattern(message.content);
     
-    // Special case for admin messages with common tournament time patterns
-    const hasCommonTournamentTime = hasTimePattern && 
-      (lowerContent.includes('15h') || lowerContent.includes('15:') ||
-       lowerContent.includes('17h') || lowerContent.includes('17:'));
-    
-    // If message looks like a registration opening, return it
-    if (containsRegistrationKeyword || (hasTimePattern && hasCommonTournamentTime)) {
+    // Return message if it looks like a registration opening
+    if (containsRegistrationKeyword || hasTimePattern) {
       return message;
     }
   }
@@ -88,6 +130,11 @@ export function findPotentialRegistrationMessages(
                          message.sender === `${adminId}@s.whatsapp.net`;
     
     if (!isFromAdmin) {
+      return false;
+    }
+    
+    // Skip system messages
+    if (isSystemMessage(message.content)) {
       return false;
     }
     

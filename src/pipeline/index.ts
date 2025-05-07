@@ -20,7 +20,8 @@ export function findRegistrationStart(
 ): { registrationMessage?: DatabaseMessage; registrationTimestamp: number; registrationStarted: boolean } {
   
   // Use the core registration module to find the registration message
-  const registrationMessageResult = findRegistrationMessage(messages, groupInfo.admin);
+  // Pass the groupInfo to use the cron schedule for filtering messages
+  const registrationMessageResult = findRegistrationMessage(messages, groupInfo.admin, groupInfo);
   
   // Ensure type compatibility between WhatsAppMessage and DatabaseMessage
   // The core module returns WhatsAppMessage but we need DatabaseMessage here
@@ -32,6 +33,7 @@ export function findRegistrationStart(
   if (registrationMessage) {
     registrationStarted = true;
     registrationTimestamp = registrationMessage.timestamp;
+    console.log(`Found registration message at ${new Date(registrationTimestamp * 1000).toLocaleString()}`);
   }
 
   // If forceRegistrationTimestamp is provided, use it instead

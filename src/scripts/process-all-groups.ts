@@ -70,8 +70,10 @@ function processGroup(group: GroupInfo): Promise<void> {
       '--verbose'  // Add verbose flag to ensure detailed parsing is shown
     ];
     
-    // Only force timestamp for non-Kia4all groups
-    if (!group.ID.includes('351919755889-1528547030')) {
+    // Only force timestamp for groups that don't have a cron schedule
+    // Don't force timestamp for Kia4all and Dom19h Saldanha groups
+    if (!group.ID.includes('351919755889-1528547030') && 
+        !group.ID.includes('351919755889-1635955006')) {
       processArgs.splice(3, 0, REGISTRATION_TIMESTAMP.toString());
     }
     
