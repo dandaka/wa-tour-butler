@@ -34,8 +34,9 @@ export interface MsgParsed {
   // Source data
   originalText: string;
   rawWhatsAppObj: any; // Original message from WhatsApp API
-  sender: string;
-  timestamp: number;
+  sender: string; // Phone number of sender
+  sender_name?: string; // Display name from contacts
+  timestamp: number; // Unix timestamp
   
   // Parsed information (populated step by step)
   players: PlayerInfo[];

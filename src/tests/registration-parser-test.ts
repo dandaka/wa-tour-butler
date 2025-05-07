@@ -13,6 +13,7 @@ import { ParserPipeline } from '../pipeline/parser-pipeline';
 import { MsgParsed, MessageCommand } from '../types/message-parsing';
 import { findRegistrationOpeningMessage, filterMessagesAfterRegistration } from '../pipeline/registration-parser';
 import { GroupInfo } from '../types/signups';
+import { loadContacts, addDisplayNames, getDisplayName } from '../utils/contact-loader';
 import { findGroupInCsv } from '../utils/csv-reader';
 
 // Paths for test data
@@ -34,17 +35,6 @@ function loadMessages(filePath: string): any[] {
   } catch (error) {
     console.error(`Error loading messages from ${filePath}:`, error);
     return [];
-  }
-}
-
-// Load contacts
-function loadContacts(filePath: string): Record<string, string> {
-  try {
-    const jsonData = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(jsonData);
-  } catch (error) {
-    console.error(`Error loading contacts from ${filePath}:`, error);
-    return {};
   }
 }
 
@@ -163,6 +153,10 @@ async function main() {
   // Initialize parser pipeline
   const pipeline = new ParserPipeline();
   
+  // Load contacts
+  const contacts = loadContacts(DEFAULT_CONTACTS);
+  console.log(`Loaded ${Object.keys(contacts).length} contacts from ${DEFAULT_CONTACTS}`);
+  
   // Process messages through the normal pipeline first
   console.log('Processing messages through main pipeline...');
   const parsedMessages = pipeline.processMessages(rawMessages);
@@ -186,9 +180,19 @@ async function main() {
   const filteredMessages = filterMessagesAfterRegistration(parsedMessages, registrationMessage);
   console.log(`Filtered to ${filteredMessages.length} messages (removed ${parsedMessages.length - filteredMessages.length})`);
   
-  // Assign team IDs to the filtered messages
+  // Assign team IDs to filtered messages
   console.log('Assigning team IDs...');
-  const finalMessages = pipeline.assignTeamIds(filteredMessages);
+  const messagesWithTeamIds = pipeline.assignTeamIds(filteredMessages);
+  
+  // Add sender names from contacts to all messages including registration message
+  console.log('Adding sender display names...');
+  const finalMessages = addDisplayNames(messagesWithTeamIds, contacts);
+  
+  // Also add sender name to registration message if it has a sender
+  if (registrationMessage && registrationMessage.sender) {
+    // Need to cast as any to avoid TypeScript strict property checks
+    (registrationMessage as any).sender_name = getDisplayName(registrationMessage.sender, contacts);
+  }
   
   // Prepare results
   const results = {
