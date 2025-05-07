@@ -8,6 +8,7 @@
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
     "test": "jest",
+    "parse-test": "ts-node src/tests/registration-parser-test.ts",
     "parse-all": "ts-node src/scripts/process-all-groups.ts",
     "groups": "ts-node src/scripts/fetchGroupIds.ts",
     "fetch-groups": "ts-node src/scripts/fetchGroupChats.ts",
