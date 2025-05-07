@@ -1,8 +1,45 @@
-import { MessageCommand } from '../types/message-parsing';
+import { MessageCommand, MsgParsed } from '../types/message-parsing';
+import { ParserPipeline } from '../pipeline/parser-pipeline';
 
-// Mock the necessary modules
-jest.mock('../pipeline/parser-pipeline');
-jest.mock('../utils/contact-loader');
+// Create test function to use real parser implementation
+function parseTestMessage(message: Partial<MsgParsed>): MsgParsed {
+  // Create parser instance
+  const parser = new ParserPipeline();
+  
+  // Prepare a proper message object with all required properties
+  const baseMsg: any = {
+    // Required for the parser pipeline
+    originalText: message.originalText || '',
+    rawWhatsAppObj: {
+      sender: message.sender || '123456789@s.whatsapp.net',
+      fromMe: message.rawWhatsAppObj?.fromMe || false,
+      content: message.originalText || '',
+      timestamp: Date.now(),
+      id: 'test-id'
+    },
+    sender: message.sender || '123456789@s.whatsapp.net',
+    timestamp: Date.now(),
+    players: message.players || [],
+    modifier: message.modifier || MessageCommand.CONVERSATION,
+    isTeam: message.isTeam || false,
+    batch: message.batch || undefined,
+    sender_name: message.sender_name || 'Test User'
+  };
+  
+  console.log('Processing message:', baseMsg.originalText);
+  
+  // Run the message through the parser pipeline
+  const result = parser.processMessage(baseMsg);
+  
+  console.log('Result:', { 
+    text: result.originalText,
+    modifier: result.modifier,
+    players: result.players,
+    isTeam: result.isTeam
+  });
+  
+  return result;
+}
 
 // Define test input and expected output types
 type TestCase = {
@@ -196,44 +233,75 @@ describe('Message Format Parser Tests', () => {
     }
   ];
 
+  // Test cases will run below
+  
   // Run tests for each test case - with real assertions that will fail
   testCases.forEach(({ description, input, expected }) => {
     test(`should parse ${description} correctly`, () => {
-      // Create a mock message based on input
-      const message = {
+      // Create a message based on test input
+      const message: Partial<MsgParsed> = {
         originalText: input.originalText,
         sender: input.sender,
         rawWhatsAppObj: { fromMe: input.fromMe },
-        modifier: MessageCommand.CONVERSATION // Most start as conversation
+        batch: input.batch
       };
       
-      // Run test against registered ParserPipeline (this is just a theoretical test)
-      // This code checks: does input message -> produce expected output?
+      // Run test against the real ParserPipeline
+      const result = parseTestMessage(message);
       
-      // Assert expected results - this SHOULD fail until implementation is completed
-      const errorMsg = `Message format "${description}" not yet implemented: ${input.originalText}`;
-      expect(errorMsg).toBeUndefined(); // This will always fail with a good error message
+      // Now use real assertions instead of automatic failure
+      // Check player count
+      expect(result.players.length).toBe(expected.players.length);
       
-      // When implemented, we'll replace the fail() with these assertions:
-      // expect(actualResult.players).toHaveLength(expected.players.length);
-      // expect(actualResult.modifier).toBe(expected.modifier);
-      // expect(actualResult.isTeam).toBe(expected.isTeam);
-      // if (expected.batch) expect(actualResult.batch).toBe(expected.batch);
+      // Check player names if provided in expected
+      if (expected.players.length > 0) {
+        expected.players.forEach((expectedPlayer, index) => {
+          if (expectedPlayer.name) {
+            expect(result.players[index].name).toBe(expectedPlayer.name);
+          }
+        });
+      }
+      
+      // Check if it's a team registration
+      expect(result.isTeam).toBe(expected.isTeam);
+      
+      // Check the message command/modifier
+      expect(result.modifier).toBe(expected.modifier);
+      
+      // Check time batch if expected
+      if (expected.batch) {
+        expect(result.batch).toBe(expected.batch);
+      }
     });
   });
 
   // Add additional tests for specific edge cases
   
   test('should handle uppercase/lowercase variations', () => {
-    // These should fail until implemented
-    const errorMsg = 'Case insensitive parsing not implemented';
-    expect(errorMsg).toBeUndefined(); // This will always fail with a good error message
+    // Test case insensitive matching 
+    const message: Partial<MsgParsed> = {
+      originalText: "Philipp AND Diego 15h",  // Mixed case AND instead of and
+      sender: "123456789@s.whatsapp.net"
+    };
+    
+    const result = parseTestMessage(message);
+    
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe("Philipp");
+    expect(result.players[1].name).toBe("Diego");
+    expect(result.isTeam).toBe(true);
   });
   
   test('should handle "OUT" messages correctly', () => {
-    // These should fail until implemented
-    const errorMsg = 'OUT message handling not implemented';
-    expect(errorMsg).toBeUndefined(); // This will always fail with a good error message
+    // Test OUT message handling
+    const message: Partial<MsgParsed> = {
+      originalText: "OUT",
+      sender: "123456789@s.whatsapp.net"
+    };
+    
+    const result = parseTestMessage(message);
+    
+    expect(result.modifier).toBe(MessageCommand.OUT);
   });
 
   test('should standardize time formats', () => {
@@ -247,9 +315,20 @@ describe('Message Format Parser Tests', () => {
       { input: "17h30", expected: "17:30" }
     ];
     
-    // Should fail until implemented
-    const errorMsg = 'Time format standardization not implemented';
-    expect(errorMsg).toBeUndefined(); // This will always fail with a good error message
+    // Test each time format
+    timeFormats.forEach(format => {
+      const message: Partial<MsgParsed> = {
+        originalText: `Dan ${format.input}`,
+        sender: "123456789@s.whatsapp.net"
+      };
+      
+      const result = parseTestMessage(message);
+      
+      // Check if the batch was correctly standardized
+      if (result.batch) {
+        expect(result.batch).toBe(format.expected);
+      }
+    });
   });
 
   // Document all the different name separators we should handle
