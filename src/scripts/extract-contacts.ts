@@ -107,19 +107,8 @@ function processContactData(contacts: any[]): Record<string, string> {
       displayName = contact.push_name;
     }
     
-    // If we couldn't find a name, generate a fake one for testing
-    if (displayName === phoneNumber) {
-      // Generate random name for testing purposes
-      const firstNames = ['João', 'Miguel', 'André', 'Pedro', 'Diogo', 'Ricardo', 'José', 'Francisco', 'Manuel', 'Paulo'];
-      const lastNames = ['Silva', 'Santos', 'Ferreira', 'Costa', 'Oliveira', 'Rodrigues', 'Martins', 'Sousa', 'Fernandes', 'Gonçalves'];
-      
-      // Use the phone number as a seed for pseudo-random selection
-      const phoneSum = phoneNumber.split('').reduce((sum: number, digit: string) => sum + (parseInt(digit) || 0), 0);
-      const firstName = firstNames[phoneSum % firstNames.length];
-      const lastName = lastNames[(phoneSum * 31) % lastNames.length];
-      
-      displayName = `${firstName} ${lastName}`;
-    }
+    // Just use the phone number when no real name is available
+    // We don't want to generate fake names as it can create confusion
     
     contactMap[phoneNumber] = displayName;
   });

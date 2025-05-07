@@ -7,10 +7,32 @@
 
 import { MsgParsed, MessageCommand, PlayerInfo } from '../types/message-parsing';
 import { containsTimePattern } from '../utils/date';
+import { loadContacts, getDisplayName as getContactName } from '../utils/contact-loader';
 
-// Simple placeholder function until we properly export this from signup-parser
+// Contact data cache
+let contactsData: Record<string, string> | null = null;
+
+/**
+ * Get display name for a phone number using contacts data if available
+ */
 function getDisplayName(phoneNumber: string): string {
-  return phoneNumber.replace('@s.whatsapp.net', '');
+  // Clean the phone number
+  const cleanNumber = phoneNumber.replace('@s.whatsapp.net', '');
+  
+  // Load contacts if not already loaded
+  if (!contactsData) {
+    try {
+      const contactsPath = process.cwd() + '/data/test-data/contacts.json';
+      contactsData = loadContacts(contactsPath);
+      console.log(`Loaded ${Object.keys(contactsData).length} contacts for name resolution`);
+    } catch (error) {
+      console.warn('Failed to load contacts:', error);
+      contactsData = {}; // Use empty object on failure
+    }
+  }
+  
+  // Get display name from contacts or use phone number as fallback
+  return contactsData[cleanNumber] || cleanNumber;
 }
 
 /**
@@ -164,8 +186,8 @@ export class ParserPipeline {
       return result;
     }
     
-    // For team messages, extract all player names
-    if (msg.modifier === MessageCommand.TEAM || msg.modifier === MessageCommand.IN) {
+    // For team messages, IN, and OUT messages, extract all player names
+    if (msg.modifier === MessageCommand.TEAM || msg.modifier === MessageCommand.IN || msg.modifier === MessageCommand.OUT) {
       // Extract players mentioned in the message
       let foundPlayers = false;
       
