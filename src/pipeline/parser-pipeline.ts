@@ -216,7 +216,7 @@ export class ParserPipeline {
         foundPlayers = true;
       }
       
-      // 3. Check for "Name1 e Name2" format
+      // 3. Check for "Name1 e Name2" format - common team registration pattern
       const eMatch = msg.originalText.match(/([^\d@][^\n,]+?)\s+e\s+([^\d@][^\n,]+)/i);
       if (eMatch && eMatch[1] && eMatch[2]) {
         const name1 = eMatch[1].trim();
@@ -238,12 +238,24 @@ export class ParserPipeline {
         foundPlayers = true;
       }
       
-      // Always add the sender as the first player if no explicit names found
-      // For team messages with names like "João Silva e Pedro Barco", sender should be added
-      const senderPhone = msg.sender.replace('@s.whatsapp.net', '');
+      // Extract time patterns from all player names
+      // This handles cases where time is appended to names like "Abilio Duarte 15h"
+      for (const player of result.players) {
+        if (player.name) {
+          // Remove time patterns (15h, 15:00, 15.00, etc.) from names
+          const cleanName = player.name.replace(/\s+(?:1[0-9][:.h]?[0-9]{0,2}|[2][0-3][:.h]?[0-9]{0,2})\s*$/i, '').trim();
+          player.name = cleanName;
+          player.displayName = cleanName;
+        }
+      }
       
-      if (!foundPlayers || msg.modifier === MessageCommand.TEAM) {
-        // Add sender as the first player
+      // Only add the sender as a player if no explicit players were found
+      // AND the message is not from the bot/admin (fromMe check)
+      const senderPhone = msg.sender.replace('@s.whatsapp.net', '');
+      const isFromMe = msg.rawWhatsAppObj?.fromMe === true;
+      
+      if (!foundPlayers && !isFromMe) {
+        // Add sender as the first player only if we didn't find players and message is not from admin
         result.players.unshift({
           phoneNumber: senderPhone,
           displayName: getDisplayName(senderPhone)
