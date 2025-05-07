@@ -17,10 +17,25 @@ const DEFAULT_GROUP_ID = '120363028202164779@g.us';
 
 // Database connection
 function connectToDatabase() {
-  const dbPath = path.join(process.cwd(), 'data', 'db', 'whatsapp.db');
+  // Paths to potential database files (in order of preference)
+  const potentialDbPaths = [
+    path.join(process.cwd(), 'data', 'whatsapp_messages.db'),
+    path.join(process.cwd(), 'data', 'messages.db'),
+    path.join(process.cwd(), 'data', 'group_messages.db')
+  ];
   
-  if (!fs.existsSync(dbPath)) {
-    console.error(`Database file not found at: ${dbPath}`);
+  // Find the first existing database file
+  let dbPath = null;
+  for (const potentialPath of potentialDbPaths) {
+    if (fs.existsSync(potentialPath)) {
+      dbPath = potentialPath;
+      console.log(`Using database: ${dbPath}`);
+      break;
+    }
+  }
+  
+  if (!dbPath) {
+    console.error('No valid database file found!');
     process.exit(1);
   }
   
@@ -37,37 +52,29 @@ function extractRecentMessages(db: BetterSqlite3.Database, groupId: string, days
   
   return db.prepare(`
     SELECT 
-      m.id,
-      m.key_id,
-      m.key_from_me,
-      m.key_remote_jid,
-      m.key_participant,
-      m.status,
-      m.data,
-      m.timestamp,
-      m.media_url,
-      m.media_mime_type,
-      m.media_size,
-      m.media_name,
-      m.media_duration,
-      m.media_hash,
-      m.origin,
-      m.latitude,
-      m.longitude
-    FROM messages AS m
-    WHERE m.key_remote_jid = ? AND m.timestamp >= ?
-    ORDER BY m.timestamp ASC
+      id,
+      chat_id,
+      sender,
+      timestamp,
+      message_type,
+      content,
+      is_from_me,
+      raw_data,
+      created_at
+    FROM messages
+    WHERE chat_id = ? AND timestamp >= ?
+    ORDER BY timestamp ASC
   `).all(groupId, daysAgoTimestamp);
 }
 
 // Transform database message to our format for testing
 function transformMessages(dbMessages: any[]) {
   return dbMessages.map(msg => ({
-    id: msg.key_id,
+    id: msg.id,
     timestamp: msg.timestamp,
-    sender: msg.key_participant || msg.key_remote_jid,
-    content: msg.data || '',
-    fromMe: Boolean(msg.key_from_me)
+    sender: msg.sender || msg.chat_id,
+    content: msg.content || '',
+    fromMe: Boolean(msg.is_from_me)
   }));
 }
 
