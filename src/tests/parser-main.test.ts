@@ -2,95 +2,214 @@
  * Tests for the parser-main module
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { parseTest, loadMessages } from '../parser/parser-main';
-import { WhatsAppMessage } from '../types/messages';
+import * as fs from "fs";
+import * as path from "path";
+import { parseTest, loadMessages } from "../parser/parser-main";
+import { detectRegistrationStart } from "../parser/registration-start-detect";
+import { calculateRegistrationEndTime } from "../parser/registration-end-detect";
+import { WhatsAppMessage } from "../types/messages";
+import { GroupInfo } from "../types/group-info";
 
-describe('Parser Main', () => {
-  const testDataDir = path.resolve(__dirname, '../../data/test-data');
-  const messagesFilePath = path.join(testDataDir, '120363028202164779-messages.json');
-  const groupsFilePath = path.join(testDataDir, 'groups-test.json');
-  const resultFilePath = path.join(testDataDir, 'result.json');
-  
-  // Load admin IDs from the groups file
-  const groupsData = JSON.parse(fs.readFileSync(groupsFilePath, 'utf8'));
-  const targetGroupId = '120363028202164779@g.us'; // This should match the messages file group ID
-  
-  // Find the target group in the groups data
-  const group = groupsData.find((g: any) => g.ID === targetGroupId);
-  
-  // Extract admin IDs, removing the @s.whatsapp.net part if present
-  const adminIds = group ? 
-    group.Admins.map((admin: string) => admin.replace('@s.whatsapp.net', '')) : 
-    ['351936836204']; // Fallback to a default in case the group isn't found 
+describe("Parser Main", () => {
+  // Common test data setup
+  const testDataDir = path.resolve(__dirname, "../../data/test-data");
+  const messagesFilePath = path.join(
+    testDataDir,
+    "120363028202164779-messages.json"
+  );
+  const groupsFilePath = path.join(testDataDir, "groups-test.json");
+  const resultFilePath = path.join(testDataDir, "result.json");
 
-  // Test that the parser can detect registration messages and end time
-  test('should detect registration message, end time, and write to result.json', () => {
-    // Debug: Read messages file directly for inspection - only for test verification
-    const messages = JSON.parse(fs.readFileSync(messagesFilePath, 'utf8'));
-    
-    // Call the parseTest function - which now returns the comprehensive result
-    const fullResult = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
-    
-    // Write the comprehensive result to the result.json file
-    fs.writeFileSync(
-      resultFilePath, 
-      JSON.stringify(fullResult, null, 2),
-      'utf8'
-    );
-    
-    // Verify that result was written correctly
-    expect(fs.existsSync(resultFilePath)).toBe(true);
-    
-    // Read the result back to verify content
-    const resultContent = JSON.parse(fs.readFileSync(resultFilePath, 'utf8'));
-    
-    // Check if the result has the expected structure
-    expect(resultContent).toBeDefined();
-    expect(typeof resultContent).toBe('object');
-    
-    // We expect the parser to find a registration message (success should be true)
-    // If this test fails, it might be because:
-    // 1. There's no registration message in the test data
-    // 2. The detection logic failed
-    // 3. The admin IDs don't match the sender of registration messages
-    expect(resultContent.parsingResult.registrationStart.success).toBe(true);
-    
-    if (resultContent.parsingResult.registrationStart.success) {
-      // Check registration start details
-      expect(resultContent.parsingResult.registrationStart.timestamp).toBeGreaterThan(0);
-      expect(resultContent.parsingResult.registrationStart.message).toBeDefined();
-      expect(resultContent.registrationMessage).toBeDefined();
-      expect(resultContent.registrationStartTime).toBeDefined();
-      
-      // Add detailed logging for debugging
-      console.log('Registration start timestamp:', resultContent.registrationStartTime);
-      console.log('Registration start date:', new Date(resultContent.registrationStartTime * 1000).toISOString());
-      console.log('Registration end result:', JSON.stringify(resultContent.parsingResult.registrationEnd));
-      
+  // Load test data for all tests
+  let messages: WhatsAppMessage[];
+  let groupsData: any[];
+  let targetGroupId: string;
+  let group: GroupInfo;
+  let adminIds: string[];
+
+  // Setup that runs before all tests
+  beforeAll(() => {
+    // Load messages
+    messages = JSON.parse(fs.readFileSync(messagesFilePath, "utf8"));
+
+    // Load group data
+    groupsData = JSON.parse(fs.readFileSync(groupsFilePath, "utf8"));
+    targetGroupId = "120363028202164779@g.us"; // This should match the messages file group ID
+
+    // Find the target group in the groups data
+    group = groupsData.find((g: any) => g.ID === targetGroupId);
+
+    // Extract admin IDs, removing the @s.whatsapp.net part if present
+    adminIds = group
+      ? group.Admins.map((admin: string) =>
+          admin.replace("@s.whatsapp.net", "")
+        )
+      : ["351936836204"]; // Fallback to a default in case the group isn't found
+  });
+
+  // Test registration start detection
+  test("should detect registration start message", () => {
+    // Call the registration start detection function directly
+    const result = detectRegistrationStart(messages, group);
+
+    // Verify registration start detection
+    expect(result.success).toBe(true);
+    expect(result.timestamp).toBeGreaterThan(0);
+    expect(result.message).toBeDefined();
+
+    if (result.success && result.message) {
+      // Verify message contents
+      expect(result.message.content.toLowerCase()).toContain("inscrições");
+      console.log("Registration message detected:", result.message.content);
+      console.log(
+        "Registration start time:",
+        new Date(result.timestamp! * 1000).toISOString()
+      );
+    }
+  });
+
+  // Test registration end calculation
+  test("should calculate registration end time from batches", () => {
+    // First get the registration start time
+    const regStart = detectRegistrationStart(messages, group);
+    expect(regStart.success).toBe(true);
+
+    if (regStart.success && regStart.timestamp) {
+      // Call the registration end calculation directly
+      const regEnd = calculateRegistrationEndTime(regStart.timestamp, group);
+
       // Log batch information
-      if (resultContent.groupInfo.Batches) {
-        console.log('Batches found:', resultContent.groupInfo.Batches.length);
-        resultContent.groupInfo.Batches.forEach((batch: any, index: number) => {
-          console.log(`Batch ${index}: name=${batch.name}, tournamentTime=${batch.TournamentTime || 'none'}`);
+      if (group.Batches) {
+        console.log("Batches found:", group.Batches.length);
+        group.Batches.forEach((batch, index) => {
+          console.log(
+            `Batch ${index}: name=${batch.name}, tournamentTime=${
+              batch.TournamentTime || "none"
+            }`
+          );
         });
-      } else {
-        console.log('No batches found in group info');
       }
-      
-      // Check if we have batch information with tournament times in the test data
-      // This is needed for registration end detection to work
-      if (resultContent.groupInfo.Batches && resultContent.groupInfo.Batches.some((batch: { TournamentTime?: string }) => batch.TournamentTime)) {
-        console.log('Test data has batches with tournament times');
-        // If test group has tournament times, we should have calculated an end time
-        expect(resultContent.parsingResult.registrationEnd.success).toBe(true);
-        expect(resultContent.registrationEndTime).toBeDefined();
-        expect(resultContent.registrationEndTime).toBeGreaterThan(resultContent.registrationStartTime);
+
+      // Verify registration end calculation if tournament times are defined
+      const hasTournamentTimes =
+        group.Batches && group.Batches.some((batch) => batch.TournamentTime);
+
+      if (hasTournamentTimes) {
+        expect(regEnd.success).toBe(true);
+        expect(regEnd.timestamp).toBeGreaterThan(regStart.timestamp);
+        console.log(
+          "Registration end time:",
+          new Date(regEnd.timestamp * 1000).toISOString()
+        );
       } else {
-        console.log('No batches with tournament times found in test data');
+        console.log("No tournament times defined in test data");
       }
     }
+  });
+
+  // Test the full parsing workflow and result file creation
+  test("should parse messages and write result to file", () => {
+    // Call the parseTest function - which now returns the comprehensive result
+    const fullResult = parseTest(
+      messagesFilePath,
+      groupsFilePath,
+      targetGroupId
+    );
+
+    // Write the comprehensive result to the result.json file
+    fs.writeFileSync(
+      resultFilePath,
+      JSON.stringify(fullResult, null, 2),
+      "utf8"
+    );
+
+    // Verify that result was written correctly
+    expect(fs.existsSync(resultFilePath)).toBe(true);
+
+    // Read the result back to verify content
+    const resultContent = JSON.parse(fs.readFileSync(resultFilePath, "utf8"));
+
+    // Verify structure of result
+    expect(resultContent).toBeDefined();
+    expect(typeof resultContent).toBe("object");
+    expect(resultContent.groupInfo).toBeDefined();
+    expect(resultContent.registrationMessage).toBeDefined();
+    expect(resultContent.allMessages).toBeDefined();
+    expect(resultContent.parsingResult).toBeDefined();
+  });
+
+  // Helper type for the parseTest result to avoid TypeScript errors
+  type ParseTestResult = {
+    groupInfo: any;
+    registrationMessage: WhatsAppMessage | null;
+    registrationStartTime: number | undefined;
+    registrationEndTime: number | null;
+    allMessages: WhatsAppMessage[];
+    parsingResult: {
+      registrationStart: { message?: WhatsAppMessage; timestamp?: number; success: boolean };
+      registrationEnd: { timestamp: number; success: boolean };
+    };
+  };
+
+  // Test the complete integration of registration start detection
+  test('should correctly integrate registration start detection', () => {
+    // Call the full parser
+    const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
     
+    // First check if the result is a success object with the right structure
+    expect(result).toBeDefined();
+    expect('groupInfo' in result).toBe(true);
+    
+    // Since we've confirmed the result has the right structure, we can type cast it safely
+    const fullResult = result as ParseTestResult;
+    
+    // Verify registration start detection in the full result
+    expect(fullResult.parsingResult.registrationStart.success).toBe(true);
+    expect(fullResult.registrationStartTime).toBeDefined();
+    expect(fullResult.registrationMessage).toBeDefined();
+    
+    if (fullResult.registrationStartTime) {
+      console.log('Registration start test successful:');
+      console.log('- Registration starts:', new Date(fullResult.registrationStartTime * 1000).toISOString());
+      console.log('- Registration message:', fullResult.registrationMessage?.content);
+    }
+  });
+
+  // Test the complete integration of registration end detection
+  test('should correctly integrate registration end detection', () => {
+    // Call the full parser
+    const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
+    
+    // First check if the result is a success object with the right structure
+    expect(result).toBeDefined();
+    expect('groupInfo' in result).toBe(true);
+    
+    // Since we've confirmed the result has the right structure, we can type cast it safely
+    const fullResult = result as ParseTestResult;
+    
+    // Verify registration end calculation in the full result if applicable
+    if (fullResult.groupInfo?.Batches) {
+      const hasTournamentTimes = fullResult.groupInfo.Batches.some(
+        (batch: any) => batch.TournamentTime
+      );
+      
+      if (hasTournamentTimes) {
+        expect(fullResult.parsingResult.registrationEnd.success).toBe(true);
+        expect(fullResult.registrationEndTime).toBeDefined();
+        
+        if (fullResult.registrationStartTime && fullResult.registrationEndTime) {
+          expect(fullResult.registrationEndTime).toBeGreaterThan(fullResult.registrationStartTime);
+          
+          console.log('Registration end test successful:');
+          console.log('- Registration ends:', new Date(fullResult.registrationEndTime * 1000).toISOString());
+          
+          // Calculate registration window duration
+          const durationHours = (fullResult.registrationEndTime - fullResult.registrationStartTime) / 3600;
+          console.log(`- Registration window duration: ${durationHours.toFixed(2)} hours`);
+        }
+      } else {
+        console.log('No tournament times found in test data - skipping end time checks');
+      }
+    }
   });
 });
