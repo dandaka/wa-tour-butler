@@ -35,8 +35,9 @@ function parseTestMessage(message: Partial<MsgParsed>): MsgParsed {
     text: result.originalText,
     modifier: result.modifier,
     players: result.players,
-    isTeam: result.isTeam
-  });
+    isTeam: result.isTeam,
+    batch: result.batch
+  }); 
   
   return result;
 }
@@ -322,35 +323,156 @@ describe('Message Format Parser Tests', () => {
     expect(result3.batch).toBe('15:00');
   });
 
-  test('should handle all name separator formats', () => {
-    // This is a comprehensive test that checks for consistency across all formats
-    const formats = [
-      'Player1 and Player2',
-      'Player1 / Player2',
-      'Player1/Player2',
-      'Player1 + partner',
-      'Player1+partner',
-      'Player1 & Player2',
-      'Player1&Player2',
-      'Player1 with partner',
-      'Player1 com Player2',
-      'Player1 e Player2'
-    ];
+  test('should handle "and" separator format', () => {
+    const message: Partial<MsgParsed> = {
+      originalText: 'Player1 and Player2',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+    
+    const result = parseTestMessage(message);
+    
+    expect(result.isTeam).toBe(true);
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe('Player1');
+    expect(result.players[1].name).toBe('Player2');
+  });
 
-    formats.forEach(format => {
-      const message: Partial<MsgParsed> = {
-        originalText: format,
-        sender: '123456789@s.whatsapp.net',
-        rawWhatsAppObj: { fromMe: false }
-      };
-      
-      const result = parseTestMessage(message);
-      
-      expect(result.isTeam).toBe(true);
-      expect(result.players.length).toBe(2);
-    });
+  test('should handle slash with spaces separator format', () => {
+    const message: Partial<MsgParsed> = {
+      originalText: 'Player1 / Player2',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+    
+    const result = parseTestMessage(message);
+    
+    expect(result.isTeam).toBe(true);
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe('Player1');
+    expect(result.players[1].name).toBe('Player2');
+  });
+
+  test('should handle slash without spaces separator format', () => {
+    const message: Partial<MsgParsed> = {
+      originalText: 'Player1/Player2',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+    
+    const result = parseTestMessage(message);
+    
+    expect(result.isTeam).toBe(true);
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe('Player1');
+    expect(result.players[1].name).toBe('Player2');
+  });
+
+  test('should handle "+ partner" format', () => {
+    const message: Partial<MsgParsed> = {
+      originalText: 'Player1 + partner',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+    
+    const result = parseTestMessage(message);
+    
+    expect(result.isTeam).toBe(true);
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe('Player1');
+    expect(result.players[1].name).toBe('Player1\'s partner');
+  });
+
+  test('should handle "+partner" format without space', () => {
+    const message: Partial<MsgParsed> = {
+      originalText: 'Player1+partner',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+    
+    const result = parseTestMessage(message);
+    
+    expect(result.isTeam).toBe(true);
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe('Player1');
+    expect(result.players[1].name).toBe('Player1\'s partner');
   });
   
+  test('should handle "&" separator format', () => {
+    const message: Partial<MsgParsed> = {
+      originalText: 'Player1 & Player2',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+    
+    const result = parseTestMessage(message);
+    
+    expect(result.isTeam).toBe(true);
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe('Player1');
+    expect(result.players[1].name).toBe('Player2');
+  });
+  
+  test('should handle "&" without spaces format', () => {
+    const message: Partial<MsgParsed> = {
+      originalText: 'Player1&Player2',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+    
+    const result = parseTestMessage(message);
+    
+    expect(result.isTeam).toBe(true);
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe('Player1');
+    expect(result.players[1].name).toBe('Player2');
+  });
+
+  test('should handle "with partner" format', () => {
+    const message: Partial<MsgParsed> = {
+      originalText: 'Player1 with partner',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+    
+    const result = parseTestMessage(message);
+    
+    expect(result.isTeam).toBe(true);
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe('Player1');
+    expect(result.players[1].name).toBe('Player1\'s partner');
+  });
+  
+  test('should handle Portuguese "com" format', () => {
+    const message: Partial<MsgParsed> = {
+      originalText: 'Player1 com Player2',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+    
+    const result = parseTestMessage(message);
+    
+    expect(result.isTeam).toBe(true);
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe('Player1');
+    expect(result.players[1].name).toBe('Player2');
+  });
+  
+  test('should handle Portuguese "e" format', () => {
+    const message: Partial<MsgParsed> = {
+      originalText: 'Player1 e Player2',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+    
+    const result = parseTestMessage(message);
+    
+    expect(result.isTeam).toBe(true);
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe('Player1');
+    expect(result.players[1].name).toBe('Player2');
+  });
+
   test('should handle multiline messages correctly', () => {
     const message: Partial<MsgParsed> = {
       originalText: 'Julien / Mark \nJulien / Ben',
