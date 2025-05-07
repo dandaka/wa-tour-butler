@@ -102,10 +102,98 @@ describe('Team Numbering', () => {
     
     expect(result[2].teamNumber).toBe(2);
     expect(result[2].status).toBe('IN');
-
+    
     // Check that OUT teams don't get numbers
     expect(result[1].teamNumber).toBeUndefined();
     expect(result[1].status).toBe('OUT');
+  });
+
+  it('should never display team numbers for solo players in formatted output', () => {
+    const signups: ParsedSignup[] = [
+      createSignup(['John'], undefined),               // Solo player, no time
+      createSignup(['Mike', 'Tom'], undefined),        // Team 1, no time
+      createSignup(['Sarah'], '15:00'),               // Solo player with time
+      createSignup(['Chris'], '15:00'),               // Another solo player
+      createSignup(['Lisa', 'Amy'], '15:00'),         // Team 1 for 15:00
+      createSignup(['David'], undefined),             // Another solo player, no time
+      createSignup(['Hanson', 'Elena'], undefined)    // Team 2, no time
+    ];
+
+    const result = processSignupsWithTeams(signups);
+
+    // Check solo players have no team numbers in their formatted names
+    expect(result[0].formattedNames[0]).toBe('John'); // No team number
+    expect(result[0].teamNumber).toBeUndefined();
+
+    expect(result[2].formattedNames[0]).toBe('Sarah'); // No team number
+    expect(result[2].teamNumber).toBeUndefined();
+
+    expect(result[3].formattedNames[0]).toBe('Chris'); // No team number
+    expect(result[3].teamNumber).toBeUndefined();
+
+    expect(result[5].formattedNames[0]).toBe('David'); // No team number
+    expect(result[5].teamNumber).toBeUndefined();
+
+    // Check team players have team numbers in their formatted names
+    expect(result[1].formattedNames[0]).toMatch(/Mike \(\d+\)/); // Has team number
+    expect(result[1].formattedNames[1]).toMatch(/Tom \(\d+\)/); // Has team number
+    expect(result[1].teamNumber).toBeDefined();
+
+    expect(result[4].formattedNames[0]).toMatch(/Lisa \(\d+\)/); // Has team number
+    expect(result[4].formattedNames[1]).toMatch(/Amy \(\d+\)/); // Has team number
+    expect(result[4].teamNumber).toBeDefined();
+
+    expect(result[6].formattedNames[0]).toMatch(/Hanson \(\d+\)/); // Has team number
+    expect(result[6].formattedNames[1]).toMatch(/Elena \(\d+\)/); // Has team number
+    expect(result[6].teamNumber).toBeDefined();
+  });
+  
+  it('should differentiate between teams and solo players for markdown display', () => {
+    // Create a mix of solo players and teams
+    const signups: ParsedSignup[] = [
+      createSignup(['James', 'Chris'], undefined),    // Team 1
+      createSignup(['Francisco'], undefined),        // Solo player
+      createSignup(['Tom', 'Louis'], undefined),     // Team 2
+      createSignup(['Hanson'], undefined),           // Solo player
+      createSignup(['Marcos'], undefined),           // Solo player
+      createSignup(['Chris'], undefined),            // Solo player
+      createSignup(['Roman'], undefined),            // Solo player
+    ];
+
+    const result = processSignupsWithTeams(signups);
+    
+    // Verify team assignments
+    // Teams should have team numbers
+    expect(result[0].teamNumber).toBeDefined();
+    expect(result[0].isTeam).toBe(true);
+    expect(result[2].teamNumber).toBeDefined();
+    expect(result[2].isTeam).toBe(true);
+    
+    // Solo players should NOT have team numbers
+    expect(result[1].teamNumber).toBeUndefined();
+    expect(result[1].isTeam).toBe(false);
+    expect(result[3].teamNumber).toBeUndefined();
+    expect(result[3].isTeam).toBe(false);
+    expect(result[4].teamNumber).toBeUndefined();
+    expect(result[4].isTeam).toBe(false);
+    expect(result[5].teamNumber).toBeUndefined();
+    expect(result[5].isTeam).toBe(false);
+    expect(result[6].teamNumber).toBeUndefined();
+    expect(result[6].isTeam).toBe(false);
+    
+    // Formatted names should match our requirements
+    // Team players should have team numbers included
+    expect(result[0].formattedNames[0]).toMatch(/James \(\d+\)/);
+    expect(result[0].formattedNames[1]).toMatch(/Chris \(\d+\)/);
+    expect(result[2].formattedNames[0]).toMatch(/Tom \(\d+\)/);
+    expect(result[2].formattedNames[1]).toMatch(/Louis \(\d+\)/);
+    
+    // Solo players should not have team numbers
+    expect(result[1].formattedNames[0]).toBe('Francisco');
+    expect(result[3].formattedNames[0]).toBe('Hanson');
+    expect(result[4].formattedNames[0]).toBe('Marcos');
+    expect(result[5].formattedNames[0]).toBe('Chris');
+    expect(result[6].formattedNames[0]).toBe('Roman');
   });
 
   it('should format team names with team numbers', () => {

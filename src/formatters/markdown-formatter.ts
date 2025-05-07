@@ -61,8 +61,9 @@ export function formatOutputAsMarkdown(
         (signup as SignupWithTeam).formattedNames : 
         // Fallback to adding team numbers manually if needed
         signup.names.map(name => {
+          // Only show team numbers for actual teams (2+ players), not solo players
           const teamNumber = (signup as any).teamNumber;
-          return teamNumber ? `${name} (${teamNumber})` : name;
+          return (teamNumber && signup.names.length > 1) ? `${name} (${teamNumber})` : name;
         });
         
       namesToAdd.forEach((name: string) => {
@@ -90,8 +91,9 @@ export function formatOutputAsMarkdown(
         (signup as SignupWithTeam).formattedNames : 
         // Fallback to adding team numbers manually if needed
         signup.names.map(name => {
+          // Only show team numbers for actual teams (2+ players), not solo players
           const teamNumber = (signup as any).teamNumber;
-          return teamNumber ? `${name} (${teamNumber})` : name;
+          return (teamNumber && signup.names.length > 1) ? `${name} (${teamNumber})` : name;
         });
         
       namesToAdd.forEach((name: string) => {
@@ -257,7 +259,31 @@ export function formatOutputAsMarkdown(
       
       // Use the reordered players
       reorderedPlayers.forEach((player: string, index: number) => {
-        output += `${index + 1}. ${player}\n`;
+        // Process the player name - keep team numbers only for actual team players
+        const info = playerInfo.get(player);
+        const teamNumber = info?.teamNumber;
+        
+        // If this player has a team number, verify it belongs to a team with multiple players
+        if (teamNumber) {
+          // Check if this is truly a team player by counting players with the same team number
+          const playersWithSameTeam = reorderedPlayers.filter(p => {
+            const pInfo = playerInfo.get(p);
+            return pInfo?.teamNumber === teamNumber;
+          });
+          
+          // If only one player has this team number, it's a solo player and shouldn't have a team number
+          if (playersWithSameTeam.length <= 1) {
+            // Solo player - remove the team number
+            const cleanPlayerName = player.replace(/\s+\(\d+\)$/, '');
+            output += `${index + 1}. ${cleanPlayerName}\n`;
+          } else {
+            // Real team player - keep the team number
+            output += `${index + 1}. ${player}\n`;
+          }
+        } else {
+          // No team number - output as is
+          output += `${index + 1}. ${player}\n`;
+        }
       });
     }
     
@@ -362,7 +388,31 @@ export function formatOutputAsMarkdown(
       // display all players normally
       // Use the reordered players
       reorderedPlayers.forEach((player: string, index: number) => {
-        output += `${index + 1}. ${player}\n`;
+        // Process the player name - keep team numbers only for actual team players
+        const info = playerInfo.get(player);
+        const teamNumber = info?.teamNumber;
+        
+        // If this player has a team number, verify it belongs to a team with multiple players
+        if (teamNumber) {
+          // Check if this is truly a team player by counting players with the same team number
+          const playersWithSameTeam = reorderedPlayers.filter(p => {
+            const pInfo = playerInfo.get(p);
+            return pInfo?.teamNumber === teamNumber;
+          });
+          
+          // If only one player has this team number, it's a solo player and shouldn't have a team number
+          if (playersWithSameTeam.length <= 1) {
+            // Solo player - remove the team number
+            const cleanPlayerName = player.replace(/\s+\(\d+\)$/, '');
+            output += `${index + 1}. ${cleanPlayerName}\n`;
+          } else {
+            // Real team player - keep the team number
+            output += `${index + 1}. ${player}\n`;
+          }
+        } else {
+          // No team number - output as is
+          output += `${index + 1}. ${player}\n`;
+        }
       });
     }
     
@@ -407,14 +457,15 @@ export function formatOutputAsMarkdown(
         output += `- Timestamp: ${formatDateYYYYMMDDHHMMSS(new Date(signup.timestamp * 1000))}\n`;
       }
       
-      // Add team ID information if available
+      // Add team ID information if available and only for teams (not solo players)
       if (result.processedSignups) {
         // Find the corresponding processed signup to get team number
         const processedSignup = result.processedSignups.find(ps => 
           ps.timestamp === signup.timestamp && 
           ps.sender === signup.sender);
           
-        if (processedSignup && processedSignup.teamNumber) {
+        // Only show team ID for actual teams (not solo players)
+        if (processedSignup && processedSignup.teamNumber && signup.names.length > 1) {
           output += `- Team ID: ${processedSignup.teamNumber}\n`;
         }
       }

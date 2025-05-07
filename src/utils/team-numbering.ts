@@ -25,12 +25,18 @@ export interface SignupWithTeam extends ParsedSignup {
  */
 export function processSignupsWithTeams(signups: ParsedSignup[]): SignupWithTeam[] {
   // Convert all signups to SignupWithTeam without team numbers yet
-  const processedSignups: SignupWithTeam[] = signups.map(signup => ({
-    ...signup,
-    formattedNames: [...signup.names],
-    // Set isTeam for any signups that might not have it
-    isTeam: signup.isTeam !== undefined ? signup.isTeam : signup.names.length > 1
-  }));
+  const processedSignups: SignupWithTeam[] = signups.map(signup => {
+    // Determine if this is a team (2+ players)
+    const isTeam = signup.isTeam !== undefined ? signup.isTeam : signup.names.length > 1;
+    
+    return {
+      ...signup,
+      // Initialize formatted names without team numbers
+      formattedNames: [...signup.names],
+      // Set isTeam flag based on the number of players
+      isTeam
+    };
+  });
 
   // Group by time slot for team numbering
   const timeSlots = new Set<string>();
@@ -47,27 +53,51 @@ export function processSignupsWithTeams(signups: ParsedSignup[]): SignupWithTeam
     let teamCounter = 1;
     
     // Get all teams for this time slot that are IN status
+    // IMPORTANT: Only consider groups of 2+ players as teams
     const teamsForTimeSlot = processedSignups.filter(signup => 
       signup.time === timeSlot && 
       signup.isTeam && 
+      signup.names.length > 1 && // Must have at least 2 players to be a team
       signup.status === 'IN'
     );
     
-    // Assign team numbers
+    // Assign team numbers only to actual teams (2+ players)
     teamsForTimeSlot.forEach(signup => {
-      signup.teamNumber = teamCounter++;
+      // Double-check that this is actually a team
+      if (signup.names.length > 1) {
+        signup.teamNumber = teamCounter++;
+        
+        // Format names to include team number: "Name (TeamNumber)"
+        signup.formattedNames = signup.names.map(name => 
+          `${name} (${signup.teamNumber})`
+        );
+      }
+    });
+    
+    // Explicitly ensure solo players never have team numbers
+    const soloPlayers = processedSignups.filter(signup => 
+      signup.time === timeSlot && 
+      signup.names.length === 1 && 
+      signup.status === 'IN'
+    );
+    
+    soloPlayers.forEach(signup => {
+      // Clear any team number that might have been assigned
+      signup.teamNumber = undefined;
       
-      // Format names to include team number: "Name (TeamNumber)"
-      signup.formattedNames = signup.names.map(name => 
-        `${name} (${signup.teamNumber})`
-      );
+      // Ensure the formatted name is just the name without a team number
+      signup.formattedNames = [...signup.names];
+      
+      // Set isTeam to false explicitly for solo players
+      signup.isTeam = false;
     });
   });
   
   // Handle signups without a time slot
   const noTimeSlotTeams = processedSignups.filter(signup => 
     !signup.time && 
-    signup.isTeam && 
+    signup.isTeam && // Only actual teams (2+ players)
+    signup.names.length > 1 && // Double-check team size
     signup.status === 'IN'
   );
   
@@ -76,14 +106,35 @@ export function processSignupsWithTeams(signups: ParsedSignup[]): SignupWithTeam
     let teamCounter = 1;
     
     noTimeSlotTeams.forEach(signup => {
-      signup.teamNumber = teamCounter++;
-      
-      // Format names to include team number
-      signup.formattedNames = signup.names.map(name => 
-        `${name} (${signup.teamNumber})`
-      );
+      // Only assign team numbers for actual teams (2+ players)
+      if (signup.names.length > 1) {
+        signup.teamNumber = teamCounter++;
+        
+        // Format names to include team number
+        signup.formattedNames = signup.names.map(name => 
+          `${name} (${signup.teamNumber})`
+        );
+      }
     });
   }
+  
+  // Explicitly ensure solo players without time slots never have team numbers
+  const noTimeSlotSoloPlayers = processedSignups.filter(signup => 
+    !signup.time && 
+    signup.names.length === 1 && 
+    signup.status === 'IN'
+  );
+  
+  noTimeSlotSoloPlayers.forEach(signup => {
+    // Clear any team number that might have been assigned
+    signup.teamNumber = undefined;
+    
+    // Ensure the formatted name is just the name without a team number
+    signup.formattedNames = [...signup.names];
+    
+    // Set isTeam to false explicitly for solo players
+    signup.isTeam = false;
+  });
   
   return processedSignups;
 }
