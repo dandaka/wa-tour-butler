@@ -275,13 +275,13 @@ describe('Message Format Parser Tests', () => {
     });
   });
 
-  // Add additional tests for specific edge cases
-  
+  // Run special tests that don't fit the standard pattern
   test('should handle uppercase/lowercase variations', () => {
-    // Test case insensitive matching 
+    // Test with various capitalizations of "and" (camel case, uppercase, etc.)
     const message: Partial<MsgParsed> = {
-      originalText: "Philipp AND Diego 15h",  // Mixed case AND instead of and
-      sender: "123456789@s.whatsapp.net"
+      originalText: 'Philipp aNd Diego 15:00',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
     };
     
     const result = parseTestMessage(message);
@@ -291,62 +291,146 @@ describe('Message Format Parser Tests', () => {
     expect(result.players[1].name).toBe("Diego");
     expect(result.isTeam).toBe(true);
   });
-  
+
   test('should handle "OUT" messages correctly', () => {
-    // Test OUT message handling
     const message: Partial<MsgParsed> = {
-      originalText: "OUT",
-      sender: "123456789@s.whatsapp.net"
+      originalText: 'João and José OUT',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
     };
     
     const result = parseTestMessage(message);
     
     expect(result.modifier).toBe(MessageCommand.OUT);
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe("João");
+    expect(result.players[1].name).toBe("José");
   });
 
   test('should standardize time formats', () => {
-    const timeFormats = [
-      { input: "15h", expected: "15:00" },
-      { input: "15:00", expected: "15:00" },
-      { input: "15.00", expected: "15:00" },
-      { input: "15", expected: "15:00" },
-      { input: "17:30", expected: "17:30" },
-      { input: "17.30", expected: "17:30" },
-      { input: "17h30", expected: "17:30" }
-    ];
+    // Test various time formats (15h, 15:00, 15.00) get standardized
+    const message1: Partial<MsgParsed> = {
+      originalText: 'João 15h',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+
+    const message2: Partial<MsgParsed> = {
+      originalText: 'João 15:00',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+
+    const message3: Partial<MsgParsed> = {
+      originalText: 'João 15.00',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
     
-    // Test each time format
-    timeFormats.forEach(format => {
+    const result1 = parseTestMessage(message1);
+    const result2 = parseTestMessage(message2);
+    const result3 = parseTestMessage(message3);
+    
+    // All should be converted to the same standard format
+    expect(result1.batch).toBe('15:00');
+    expect(result2.batch).toBe('15:00');
+    expect(result3.batch).toBe('15:00');
+  });
+
+  test('should handle all name separator formats', () => {
+    // This is a comprehensive test that checks for consistency across all formats
+    const formats = [
+      'Player1 and Player2 15:00',
+      'Player1 / Player2 15:00',
+      'Player1+partner 15:00',
+      'Player1 & Player2 15:00',
+      'Player1 with partner 15:00',
+      'Player1 e Player2 15:00'
+    ];
+
+    formats.forEach(format => {
       const message: Partial<MsgParsed> = {
-        originalText: `Dan ${format.input}`,
-        sender: "123456789@s.whatsapp.net"
+        originalText: format,
+        sender: '123456789@s.whatsapp.net',
+        rawWhatsAppObj: { fromMe: false }
       };
       
       const result = parseTestMessage(message);
       
-      // Check if the batch was correctly standardized
-      if (result.batch) {
-        expect(result.batch).toBe(format.expected);
-      }
+      expect(result.isTeam).toBe(true);
+      expect(result.players.length).toBe(2);
+      expect(result.batch).toBe('15:00');
     });
   });
-
-  // Document all the different name separators we should handle
-  test('should handle all name separator formats', () => {
-    const separators = [
-      { format: "Name1 e Name2", example: "Vlad Ra e Abilio Duarte 15h" },
-      { format: "Name1 com Name2", example: "João com Roberto 15h" },
-      { format: "Name1 and Name2", example: "Rudi and Dani 15:00" },
-      { format: "Name1/Name2", example: "Julien/Mark" },
-      { format: "Name1 / Name2", example: "Julien / Mark" },
-      { format: "Name1 & Name2", example: "Philipp & Diego 15h" },
-      { format: "Name+partner", example: "Giu+partner" },
-      { format: "Name with partner", example: "Bob with partner" }
+  
+  test('should handle multiline messages correctly', () => {
+    const message: Partial<MsgParsed> = {
+      originalText: 'Julien / Mark \nJulien / Ben',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+    
+    const result = parseTestMessage(message);
+    
+    // Should only process the first line
+    expect(result.players.length).toBe(2);
+    expect(result.players[0].name).toBe('Julien');
+    expect(result.players[1].name).toBe('Mark');
+    expect(result.isTeam).toBe(true);
+    
+    // Additional test for a different format with newline
+    const message2: Partial<MsgParsed> = {
+      originalText: 'Philipp and Diego 15:00\nSome other text',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false }
+    };
+    
+    const result2 = parseTestMessage(message2);
+    
+    expect(result2.players.length).toBe(2);
+    expect(result2.players[0].name).toBe('Philipp');
+    expect(result2.players[1].name).toBe('Diego');
+    expect(result2.batch).toBe('15:00');
+  });
+  
+  test('should use sender_name when message only contains "In" and time', () => {
+    const message: Partial<MsgParsed> = {
+      originalText: 'In 15',
+      sender: '123456789@s.whatsapp.net',
+      rawWhatsAppObj: { fromMe: false },
+      sender_name: 'Reinout'
+    };
+    
+    const result = parseTestMessage(message);
+    
+    // Should recognize "In" as a command, not a name
+    expect(result.modifier).toBe(MessageCommand.IN);
+    // Should use sender_name instead of "In" as player name
+    expect(result.players.length).toBe(1);
+    expect(result.players[0].name).toBe('Reinout');
+    expect(result.isTeam).toBe(false);
+    expect(result.batch).toBe('15:00');
+    
+    // Test variations
+    const variations = [
+      { text: 'IN 15:00', name: 'Reinout' },
+      { text: 'in 15h', name: 'Reinout' },
+      { text: 'IN', name: 'Reinout' }
     ];
     
-    expect(separators.length).toBeGreaterThan(0);
+    variations.forEach(variation => {
+      const varMessage: Partial<MsgParsed> = {
+        originalText: variation.text,
+        sender: '123456789@s.whatsapp.net',
+        rawWhatsAppObj: { fromMe: false },
+        sender_name: 'Reinout'
+      };
+      
+      const varResult = parseTestMessage(varMessage);
+      
+      expect(varResult.modifier).toBe(MessageCommand.IN);
+      expect(varResult.players.length).toBe(1);
+      expect(varResult.players[0].name).toBe(variation.name);
+    });
   });
 });
-
-// This test structure defines what we expect from our parser
-// without implementing the actual parsing logic yet.
