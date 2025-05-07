@@ -8,6 +8,7 @@
 import { ProcessingResult, GroupInfo, ParsedSignup } from '../types/signups';
 import { SignupWithTeam } from '../utils/team-numbering';
 import { formatDateYYYYMMDDHHMMSS, formatTimeHHMMSS } from '../utils/date';
+import { getContactDisplayName } from '../services/contacts';
 
 /**
  * Format processing results as a markdown document
@@ -378,7 +379,20 @@ export function formatOutputAsMarkdown(
       const date = new Date(signup.timestamp * 1000);
       output += `### Signup #${index + 1} (${formatTimeHHMMSS(date)})\n`;
       output += `- Original message: "${signup.originalMessage}"\n`;
+      
+      // Include the phone number/sender ID
       output += `- Sender: ${signup.sender}\n`;
+      
+      // Add contact name from database if available
+      try {
+        const contactName = getContactDisplayName(signup.sender);
+        // Only show contact name if it's different from the phone number
+        if (contactName && contactName !== signup.sender.replace('@s.whatsapp.net', '')) {
+          output += `- Sender name: ${contactName}\n`;
+        }
+      } catch (error) {
+        // Silently skip if contact lookup fails
+      }
       output += `- Parsed names: ${signup.names.join(', ')}\n`;
       if (signup.time) {
         output += `- Time slot: ${signup.time}\n`;
