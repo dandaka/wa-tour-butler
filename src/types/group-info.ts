@@ -4,6 +4,16 @@
  */
 
 /**
+ * Represents a batch (timeslot) for a tournament
+ */
+export interface Batch {
+  name: string;
+  time: string;
+  keywords: string[];
+  TournamentTime?: string;
+}
+
+/**
  * Represents a WhatsApp group with tournament configuration settings
  */
 export interface GroupInfo {
@@ -18,5 +28,5 @@ export interface GroupInfo {
   MaxTeams: string;
   
   // Optional configuration
-  Batches?: string[];
+  Batches?: Batch[];
 }

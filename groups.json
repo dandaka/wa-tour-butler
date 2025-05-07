@@ -3,8 +3,8 @@
     "ID": "351915435544-1593092500@g.us",
     "Name": "Sao Bento Mix",
     "Admins": ["351936836204@s.whatsapp.net"],
-    "TournamentTime": "",
     "SignupStartTime": "0 19 * * 1",
+    "TournamentTime": "",
     "MaxTeams": "14"
   },
   {
@@ -18,12 +18,14 @@
       {
         "name": "15",
         "time": "15:00",
-        "keywords": ["15:00", "15h00", "15.00"]
+        "keywords": ["15:00", "15h00", "15.00"],
+        "TournamentTime": "0 15 * * 6"
       },
       {
         "name": "17",
         "time": "17:00",
-        "keywords": ["17:00", "17h00", "17.00"]
+        "keywords": ["17:00", "17h00", "17.00"],
+        "TournamentTime": "0 17 * * 6"
       }
     ]
   },

@@ -10,8 +10,9 @@ import { WhatsAppMessage } from "../types/messages";
 import { Contact, Player, ParsedRegistration } from "../types/parser";
 import { GroupInfo } from "../types/group-info";
 
-// Import registration start detection
+// Import registration detection modules
 import { detectRegistrationStart } from "./registration-start-detect";
+import { calculateRegistrationEndTime } from "./registration-end-detect";
 
 /**
  * Loads WhatsApp messages from a JSON file
@@ -73,21 +74,34 @@ export function parseTest(messagesFilePath: string, groupInfoFilePath: string, g
   // Step 3: Use detectRegistrationStart function
   const registrationStart = detectRegistrationStart(messages, groupInfo, 0);
   
-  // Step 4: Create a comprehensive result object
+  // Step 4: Calculate registration end time if registration start was successful
+  let registrationEnd = { timestamp: 0, success: false };
+  if (registrationStart.success && registrationStart.timestamp) {
+    registrationEnd = calculateRegistrationEndTime(registrationStart.timestamp, groupInfo);
+  }
+  
+  // Step 5: Create a comprehensive result object
   const fullResult = {
     // Include group info
     groupInfo: groupInfo,
     
-    // Include the registration open message (if found)
+    // Include the registration open message and time (if found)
     registrationMessage: registrationStart.success ? registrationStart.message : null,
+    registrationStartTime: registrationStart.timestamp,
+    
+    // Include registration end time (if calculated)
+    registrationEndTime: registrationEnd.success ? registrationEnd.timestamp : null,
     
     // Include all messages
     allMessages: messages,
     
-    // Include the original parsing result
-    parsingResult: registrationStart
+    // Include the parsing results
+    parsingResult: {
+      registrationStart: registrationStart,
+      registrationEnd: registrationEnd
+    }
   };
   
-  // Step 5: Return the full result
+  // Step 6: Return the full result
   return fullResult;
 }
