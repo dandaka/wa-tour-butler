@@ -10,6 +10,10 @@ import { WhatsAppMessage } from '../types/messages';
 import { ParsedSignup } from '../types/signups';
 // Import constants
 import { MESSAGE_PATTERNS, NAME_PATTERNS, TEST_CASES, MAX_NAME_WORDS, TIME_PATTERNS } from '../constants';
+// Import contact service
+import { getContactDisplayName } from '../services/contacts';
+// Import message pattern utilities
+import { messageContainsExplicitName } from './message-patterns';
 
 // Import utility functions (but use them selectively to maintain backward compatibility)
 import { cleanName as utilCleanName } from './formatting/text-utils';
@@ -21,11 +25,31 @@ export { ParsedSignup } from '../types/signups';
 
 /**
  * Extract a user-friendly name from a WhatsApp phone number
+ * 
+ * @param phoneNumber WhatsApp phone number (with or without @s.whatsapp.net suffix)
+ * @param skipContactLookup If true, will just return the phone number without looking up contact
+ * @returns User-friendly name (contact name from DB or phone number if not found)
  */
-function extractNameFromPhoneNumber(phoneNumber: string): string {
+function extractNameFromPhoneNumber(phoneNumber: string, skipContactLookup: boolean = false): string {
   // Remove the @s.whatsapp.net suffix if present
   const cleanPhone = phoneNumber.replace('@s.whatsapp.net', '');
-  // Return the full phone number (including country code) to maintain proper identification
+  
+  // Only look up contact name if not explicitly skipped
+  if (!skipContactLookup) {
+    try {
+      // Look up contact name in the database
+      const contactName = getContactDisplayName(phoneNumber);
+      
+      // If found a proper contact name (not just the phone number), use it
+      if (contactName && contactName !== cleanPhone) {
+        return contactName;
+      }
+    } catch (error) {
+      console.error(`Error getting contact display name for ${phoneNumber}:`, error);
+    }
+  }
+  
+  // Fall back to phone number if contact lookup was skipped or no name was found
   return cleanPhone;
 }
 
@@ -143,8 +167,8 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
         if (extractedNames.length > 0) {
           names = extractedNames;
         } else {
-          // If no specific names were extracted, use the sender's name/phone
-          names = [extractNameFromPhoneNumber(message.sender)];
+          // For OUT messages with no explicit name, use contact name as fallback
+          names = [extractNameFromPhoneNumber(message.sender, false)];
         }
       }
       
@@ -175,6 +199,21 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
   // Skip messages that look like they're from the admin with registration info
   if (content.includes('Inscrições abertas')) {
     return null;
+  }
+  
+  // Special case for messages that are just "in" with no time
+  if (/^\s*in\s*$/i.test(content)) {
+    // Use contact name as fallback when message is just "in"
+    const contactName = extractNameFromPhoneNumber(message.sender, false);
+    return {
+      originalMessage: originalContent,
+      names: [contactName],
+      time: undefined,
+      status: 'IN',
+      timestamp: message.timestamp,
+      sender: message.sender,
+      isTeam: false
+    };
   }
   
   // Check if it's an OUT message
@@ -392,10 +431,12 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
       isTeam: false
     };
   } else if ((timeOnlyPattern.test(cleanedContent) || inTimePattern.test(cleanedContent)) && time) {
-    const senderName = extractNameFromPhoneNumber(message.sender);
+    // For messages with just time or "in + time", there's no explicit name
+    // So we should use the contact name as a fallback
+    const contactName = extractNameFromPhoneNumber(message.sender, false);
     return {
       originalMessage: originalContent,
-      names: [senderName],
+      names: [contactName],
       time,
       status: 'IN',
       timestamp: message.timestamp,
@@ -610,6 +651,43 @@ function parseSignupMessageSingle(message: WhatsAppMessage): ParsedSignup | null
  * each line is processed separately and an array of results is returned.
  */
 export function parseSignupMessage(message: WhatsAppMessage): ParsedSignup | ParsedSignup[] | null {
+  // Skip processing for empty messages
+  if (!message.content) return null;
+
+  // Skip processing for messages that just contain a number
+  // These are typically replies to other messages
+  if (/^\d+$/.test(message.content.trim())) return null;
+  
+  // Special case for messages that are exactly just "in" (case insensitive)
+  if (/^\s*in\s*$/i.test(message.content.trim())) {
+    // Use contact name as fallback since this has no explicit name
+    const contactName = extractNameFromPhoneNumber(message.sender, false);
+    return {
+      originalMessage: message.content,
+      names: [contactName],
+      time: undefined,
+      status: 'IN',
+      timestamp: message.timestamp,
+      sender: message.sender,
+      isTeam: false
+    };
+  }
+  
+  // Special case for "sorry out today" message pattern
+  if (/^\s*sorry\s+out\s+today\s*$/i.test(message.content.trim())) {
+    // Use contact name as fallback
+    const contactName = extractNameFromPhoneNumber(message.sender, false);
+    return {
+      originalMessage: message.content,
+      names: [contactName],
+      time: undefined,
+      status: 'OUT',
+      timestamp: message.timestamp,
+      sender: message.sender,
+      isTeam: false
+    };
+  }
+  
   // Store original message content
   const originalContent = message.content.trim();
   
@@ -752,6 +830,12 @@ function removeOutKeywords(content: string): string {
  * Returns an array of names if found, or an empty array if no specific names were found
  */
 function extractPlayerNamesFromOutMessage(content: string): string[] {
+  // Check if this is a common phrase without explicit names
+  // For messages like "sorry out today", "out please", etc.
+  if (!messageContainsExplicitName(content)) {
+    return []; // Empty array will trigger contact name fallback
+  }
+  
   // Special case for "estamos out" (we are out)
   if (/\bestamos\s+out\b/i.test(content)) {
     return []; // Return empty array to signal that we should use the sender's info
