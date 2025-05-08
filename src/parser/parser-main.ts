@@ -293,7 +293,7 @@ export function parseTest(
       players = content.split(" AND ").map((player) => player.trim());
 
       if (players.length > 1) {
-        (message as any).isTeam = true;
+        isTeam = true;
       }
 
       // If second player name has at least 1 match with any of ANON_PARTNER_PATTERNS, replace name with "Player1's partner"
