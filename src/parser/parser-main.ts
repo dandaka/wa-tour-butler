@@ -198,8 +198,8 @@ export function parseTest(
       message.modifier = MessageCommand.OUT;
     }
 
-    // 4. Check for TEAM_UP command
-    else if (MESSAGE_PATTERNS.TEAM_UP.test(content)) {
+    // 4. Check for TEAM_UP commands using any pattern in the array
+    else if (MESSAGE_PATTERNS.TEAM_UP_PATTERNS.some(pattern => pattern.test(content))) {
       message.modifier = MessageCommand.TEAM;
     }
 
@@ -239,8 +239,12 @@ export function parseTest(
       // 2. Remove command keywords
       content = content
         .replace(MESSAGE_PATTERNS.IN_COMMAND, '')
-        .replace(MESSAGE_PATTERNS.OUT_COMMAND, '')
-        .replace(MESSAGE_PATTERNS.TEAM_UP, '');
+        .replace(MESSAGE_PATTERNS.OUT_COMMAND, '');
+        
+      // Remove all team up pattern matches
+      MESSAGE_PATTERNS.TEAM_UP_PATTERNS.forEach(pattern => {
+        content = content.replace(pattern, '');
+      });
       
       // 3. Try to find team delimiters
       const teamDelimiterMatches = content.match(new RegExp(MESSAGE_PATTERNS.TEAM_DELIMITER, 'g'));

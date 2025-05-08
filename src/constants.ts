@@ -33,7 +33,15 @@ export const MESSAGE_PATTERNS = {
   // Team and player patterns
   TEAM_DELIMITER: /\s+(?:e|and|com|\+|\/|\&)\s+/i,
 
-  TEAM_UP: /(?:team\s*up|team|jogo\s*com|jogamos\s*juntos)/i,
+  // Team formation patterns
+  TEAM_UP_PATTERNS: [
+    /team\s*up/i,
+    /\bteam\b/i,
+    /jogo\s*com/i,
+    /jogamos\s*juntos/i,
+    /play\s*together/i,
+    /play\s*with/i
+  ],
   
   // Conversational filters
   CONVERSATION_PATTERNS: [
