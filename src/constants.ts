@@ -72,8 +72,11 @@ export const MESSAGE_PATTERNS = {
   SYSTEM_MESSAGE: /^(system|protocol):/i,
   BRACKET_CONTENT: /\[.*?\]/g,
 
-  // Partner detection pattern
-  PARTNER_PATTERN: /(?:^|\s)(?:with\s+)?partner(?:\s|$)/i,
+  // Partner detection patterns
+  PARTNER_PATTERNS: [
+    /(?:^|\s)(?:with\s+)?partner(?:\s|$)/i,
+    /(?:\+|\s+\+\s+)partner/i
+  ],
 };
 
 // Max Words for Player Names

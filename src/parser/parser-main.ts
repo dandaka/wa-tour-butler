@@ -299,9 +299,20 @@ export function parseTest(
       }
       
       // 5. Handle partner pattern
-      if (players.length === 1 && MESSAGE_PATTERNS.PARTNER_PATTERN.test(players[0])) {
-        // If player says "Name and partner", use "Name's Partner"
-        const playerName = players[0].replace(MESSAGE_PATTERNS.PARTNER_PATTERN, '').trim();
+      // Check if any partner pattern matches
+      const hasPartnerPattern = players.length === 1 && MESSAGE_PATTERNS.PARTNER_PATTERNS.some(pattern => pattern.test(players[0]));
+      
+      if (hasPartnerPattern) {
+        // It's a message with 'partner' in it
+        // Extract the name and add a placeholder for the partner
+        let playerName = players[0];
+        
+        // Remove all partner patterns from the player name
+        MESSAGE_PATTERNS.PARTNER_PATTERNS.forEach(pattern => {
+          playerName = playerName.replace(pattern, '');
+        });
+        
+        playerName = playerName.trim();
         
         if (playerName) {
           isTeam = true;
