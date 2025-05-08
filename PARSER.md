@@ -2,8 +2,8 @@
 
 1. Find registration opened message ✅
 2. Find time of registration closing ✅
-3. Remove information "fromMe": false
-4. Remove messages with "content": ""
+3. Remove information "fromMe": false ✅
+4. Remove messages with "content": "" ✅
 5. Select only messages between registration opened and closed
 6. Detect system messages
 7. Remove system messages
