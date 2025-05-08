@@ -597,7 +597,7 @@ describe("Parser Main", () => {
       (msg: any) => msg.content === "Bob in with partner 17:00" && msg.sender_name === "Bob Stolk"
     );
     
-    // This tests the expected behavior (will fail with current implementation)
+    // This tests the expected behavior
     expect(partnerMessage).toBeDefined();
     expect(partnerMessage?.modifier).toBe("in");
     expect(partnerMessage?.batch).toBe("17");
@@ -611,7 +611,7 @@ describe("Parser Main", () => {
       (msg: any) => msg.content === "Kevin & Partner in 15h" && msg.sender_name === "Kevin Feldengut"
     );
     
-    // This tests the expected behavior (will fail with current implementation)
+    // This tests the expected behavior
     expect(ampersandPartnerMessage).toBeDefined();
     expect(ampersandPartnerMessage?.modifier).toBe("in");
     expect(ampersandPartnerMessage?.batch).toBe("15");
@@ -625,7 +625,7 @@ describe("Parser Main", () => {
       (msg: any) => msg.content === "Nikita & partner OUT 15 and 17" && msg.sender_name === "Nikita S."
     );
     
-    // This tests the expected behavior (will fail with current implementation)
+    // This tests the expected behavior
     expect(outTeamMessage).toBeDefined();
     expect(outTeamMessage?.modifier).toBe("out");
     expect(outTeamMessage?.batch).toBe("15");
