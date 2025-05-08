@@ -246,14 +246,14 @@ export function parseTest(
         [...batchNames, ...batchKeywords]
           .sort((a, b) => b.length - a.length)
           .forEach((keyword) => {
-            content = content.replace(new RegExp(`\\b${keyword}\\b`, "i"), "");
+            content = content.replace(new RegExp(`\\b${keyword}\\b`, "i"), " ");
           });
       }
 
       // 2. Remove command keywords
       content = content
-        .replace(MESSAGE_PATTERNS.IN_COMMAND, "")
-        .replace(MESSAGE_PATTERNS.OUT_COMMAND, "");
+        .replace(MESSAGE_PATTERNS.IN_COMMAND, " ")
+        .replace(MESSAGE_PATTERNS.OUT_COMMAND, " ");
 
       // 3. Check for anonymous partner patterns
       let hasAnonPartner = false;
