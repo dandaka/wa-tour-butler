@@ -303,7 +303,7 @@ export function parseTest(
       const hasPartnerPattern = players.length === 1 && MESSAGE_PATTERNS.ANON_PARTNER_PATTERNS.some(pattern => pattern.test(players[0]));
       
       if (hasPartnerPattern) {
-        // It's a message with 'partner' in it
+        // It's a message with 'partner' in it - player is signing up with anonymous partner
         // Extract the name and add a placeholder for the partner
         let playerName = players[0];
         
@@ -322,7 +322,7 @@ export function parseTest(
             message.modifier = MessageCommand.TEAM;
           }
           
-          players = [playerName, `${playerName}'s Partner`];
+          players = [playerName, `${playerName}'s partner`];
         }
       }
       
