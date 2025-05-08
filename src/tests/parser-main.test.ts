@@ -56,6 +56,7 @@ describe("Parser Main", () => {
     expect(result.success).toBe(true);
     expect(result.timestamp).toBeGreaterThan(0);
     expect(result.message).toBeDefined();
+    expect(result.message).toBeDefined();
 
     if (result.success && result.message) {
       // Verify message contents
@@ -134,7 +135,7 @@ describe("Parser Main", () => {
     expect(typeof resultContent).toBe("object");
     expect(resultContent.groupInfo).toBeDefined();
     expect(resultContent.registrationMessage).toBeDefined();
-    expect(resultContent.allMessages).toBeDefined();
+    expect(resultContent.messages).toBeDefined();
     expect(resultContent.parsingResult).toBeDefined();
   });
 
@@ -144,7 +145,8 @@ describe("Parser Main", () => {
     registrationMessage: WhatsAppMessage | null;
     registrationStartTime: number | undefined;
     registrationEndTime: number | null;
-    allMessages: WhatsAppMessage[];
+    messages: WhatsAppMessage[];
+    messagesByBatch: Record<string, WhatsAppMessage[]>;
     parsingResult: {
       registrationStart: { message?: WhatsAppMessage; timestamp?: number; success: boolean };
       registrationEnd: { timestamp: number; success: boolean };
@@ -188,11 +190,11 @@ describe("Parser Main", () => {
     const fullResult = result as ParseTestResult;
     
     // Verify that all messages have content (not empty)
-    fullResult.allMessages.forEach(message => {
+    fullResult.messages.forEach((message: WhatsAppMessage) => {
       expect(message.content.trim().length).toBeGreaterThan(0);
     });
     
-    console.log(`Empty content test successful: Verified ${fullResult.allMessages.length} messages have content`);
+    console.log(`Empty content test successful: Verified ${fullResult.messages.length} messages have content`);
   });
   
   // Test message cleaning to remove fromMe property
@@ -208,11 +210,11 @@ describe("Parser Main", () => {
     const fullResult = result as ParseTestResult;
     
     // Verify that none of the messages have the fromMe property
-    fullResult.allMessages.forEach(message => {
+    fullResult.messages.forEach((message: WhatsAppMessage) => {
       expect(message).not.toHaveProperty('fromMe');
     });
     
-    console.log(`FromMe property test successful: Verified ${fullResult.allMessages.length} messages`);
+    console.log(`FromMe property test successful: Verified ${fullResult.messages.length} messages`);
   });
   
   // Test system message filtering
@@ -230,11 +232,11 @@ describe("Parser Main", () => {
     // Verify that none of the messages have content that only consists of text in square brackets
     const systemMessagePattern = /^\s*\[[^\]]+\]\s*$/;
     
-    fullResult.allMessages.forEach(message => {
+    fullResult.messages.forEach((message: WhatsAppMessage) => {
       expect(systemMessagePattern.test(message.content)).toBe(false);
     });
     
-    console.log(`System message filtering test successful: All ${fullResult.allMessages.length} remaining messages are not system messages`);
+    console.log(`System message filtering test successful: All ${fullResult.messages.length} remaining messages are not system messages`);
   });
   
   // Test batch assignment
@@ -254,7 +256,7 @@ describe("Parser Main", () => {
     expect(batches.length).toBeGreaterThan(0);
     
     // Verify that at least some messages have been assigned batches
-    const messagesWithBatches = fullResult.allMessages.filter(msg => (msg as any).batch);
+    const messagesWithBatches = fullResult.messages.filter((msg: WhatsAppMessage) => (msg as any).batch);
     expect(messagesWithBatches.length).toBeGreaterThan(0);
     
     // Check if messages with batch keywords are assigned to the right batch
@@ -268,7 +270,7 @@ describe("Parser Main", () => {
     
     // For each message with a batch assigned, verify it contains a keyword for that batch
     const batchSamples: Record<string, number> = {};
-    messagesWithBatches.forEach(msg => {
+    messagesWithBatches.forEach((msg: WhatsAppMessage) => {
       const batchName = (msg as any).batch;
       const keywords = batchKeywordsMap.get(batchName) || [];
       
@@ -315,13 +317,13 @@ describe("Parser Main", () => {
     const fullResult = result as ParseTestResult;
     
     // Verify that all messages have the sender_name property
-    fullResult.allMessages.forEach(message => {
+    fullResult.messages.forEach((message: WhatsAppMessage) => {
       expect(message).toHaveProperty('sender_name');
       expect(typeof message.sender_name).toBe('string');
     });
     
     // Verify that all messages have a sender_name that is either a contact name or the original sender ID
-    fullResult.allMessages.forEach(message => {
+    fullResult.messages.forEach((message: WhatsAppMessage) => {
       expect(message).toHaveProperty('sender_name');
       const senderName = message.sender_name as string;
       expect(senderName.length).toBeGreaterThan(0);
@@ -330,7 +332,7 @@ describe("Parser Main", () => {
     // Rather than testing specific name matches (which might change in the test data),
     // let's verify that some messages have names that differ from their phone numbers
     // as evidence that the contact mapping is working
-    const messagesWithRealNames = fullResult.allMessages.filter(message => {
+    const messagesWithRealNames = fullResult.messages.filter((message: WhatsAppMessage) => {
       const senderNumber = message.sender.split('@')[0];
       const senderName = message.sender_name as string;
       return senderName !== senderNumber && senderName !== message.sender;
@@ -341,12 +343,12 @@ describe("Parser Main", () => {
     
     // Log a few examples of mapped names
     console.log('Examples of sender name mapping:');
-    messagesWithRealNames.slice(0, 5).forEach(message => {
+    messagesWithRealNames.slice(0, 5).forEach((message: WhatsAppMessage) => {
       console.log(`${message.sender} → ${message.sender_name as string}`);
     });
     
     // Count how many messages have names different from their phone numbers (actual contact matches)
-    const messagesWithNames = fullResult.allMessages.filter(msg => {
+    const messagesWithNames = fullResult.messages.filter((msg: WhatsAppMessage) => {
       const senderName = msg.sender_name as string;
       return senderName !== msg.sender.split('@')[0] && senderName !== msg.sender;
     });
@@ -367,7 +369,7 @@ describe("Parser Main", () => {
     const fullResult = result as ParseTestResult;
     
     // Verify that all messages have the timestamp_fmt property with proper format
-    fullResult.allMessages.forEach(message => {
+    fullResult.messages.forEach((message: WhatsAppMessage) => {
       // Check property exists
       expect(message).toHaveProperty('timestamp_fmt');
       
@@ -380,8 +382,8 @@ describe("Parser Main", () => {
       expect(timestampFmt).toBe(originalDate);
     });
     
-    if (fullResult.allMessages.length > 0) {
-      const sample = fullResult.allMessages[0];
+    if (fullResult.messages.length > 0) {
+      const sample = fullResult.messages[0];
       console.log(`Timestamp formatting test successful: ${sample.timestamp} → ${sample.timestamp_fmt}`);
     }
   });

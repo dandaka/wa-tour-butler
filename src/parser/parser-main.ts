@@ -8,12 +8,16 @@ import * as path from "path";
 
 // Import types from the types directory
 import { WhatsAppMessage } from "../types/messages";
-import { Contact, Player, ParsedRegistration } from "../types/parser";
 import { GroupInfo } from "../types/group-info";
+import { Contact, Player, ParsedRegistration } from "../types/parser";
+import { MessageCommand } from "../types/message-parsing";
 
-// Import registration detection modules
+// Import other modules
 import { detectRegistrationStart } from "./registration-start-detect";
 import { calculateRegistrationEndTime } from "./registration-end-detect";
+
+// Import constants
+import { MESSAGE_PATTERNS } from "../constants";
 
 /**
  * Loads WhatsApp messages from a JSON file
@@ -176,23 +180,65 @@ export function parseTest(
   });
 
   // Step: Classify messages
-  /* 
-  0. Import MessageCommand from message-parsing.ts
-  1. Using CONVERSATION_PATTERNS from @constants.ts find all conversation messages. If on is found, assign type "CONVERSATION" and break the loop.
-  2. Using IN_COMMAND from @constants.ts find all registration messages. If one is found, assign type "IN" and break the loop.
-  3. Using OUT_COMMAND from @constants.ts find all registration messages. If one is found, assign type "OUT" and break the loop.
-  4. Using TEAM_UP from @constants.ts find all registration messages. If one is found, assign type "TEAM" and break the loop.
-  5. If none is found, assign "CONVERSATION" and break.
+  console.log('Classifying messages based on their content...');
   
-  */
+  // Classify each message into a type (IN, OUT, TEAM, CONVERSATION)
+  const messagesWithClassification = messagesWithSenderNames.map(message => {
+    // Default classification is CONVERSATION
+    let classification: MessageCommand = MessageCommand.CONVERSATION;
+    
+    // Check if the message content matches any known pattern
+    const content = message.content.toLowerCase();
+    
+    // 1. Check for conversation patterns first
+    const isConversation = MESSAGE_PATTERNS.CONVERSATION_PATTERNS.some((pattern: RegExp) => pattern.test(content));
+    if (isConversation) {
+      classification = MessageCommand.CONVERSATION;
+    }
+    // 2. Check for IN command
+    else if (MESSAGE_PATTERNS.IN_COMMAND.test(content)) {
+      classification = MessageCommand.IN;
+    }
+    // 3. Check for OUT command
+    else if (MESSAGE_PATTERNS.OUT_COMMAND.test(content)) {
+      classification = MessageCommand.OUT;
+    }
+    // 4. Check for TEAM_UP command
+    else if (MESSAGE_PATTERNS.TEAM_UP.test(content)) {
+      classification = MessageCommand.TEAM;
+    }
+    // 5. Default to CONVERSATION if no other pattern matches
+    
+    return {
+      ...message,
+      modifier: classification,
+      batch: null // Initialize batch property
+    };
+  });
+  
+  // Count messages by classification
+  const classificationCounts: Record<string, number> = {};
+  messagesWithClassification.forEach(msg => {
+    const classification = (msg as any).modifier;
+    classificationCounts[classification] = (classificationCounts[classification] || 0) + 1;
+  });
+  
+  // Log classification statistics
+  console.log('Message classification summary:');
+  Object.entries(classificationCounts).forEach(([type, count]) => {
+    console.log(`- ${type}: ${count} messages`);
+  });
 
   // Step: Parse batches
   // 1. Extract batches info from group info
   const batches = groupInfo.Batches || [];
   console.log(`Found ${batches.length} batches in group info`);
 
+  // Define type for messages with classification
+  type ClassifiedMessage = WhatsAppMessage & { modifier: MessageCommand, batch?: string | null };
+  
   // 2 & 3. For each message, check if it contains any batch keywords
-  const messagesWithBatches = messagesWithSenderNames.map((message) => {
+  const messagesWithBatches = messagesWithClassification.map((message: ClassifiedMessage) => {
     // If we don't have batches defined, return message as is
     if (batches.length === 0) {
       return message;
@@ -226,10 +272,25 @@ export function parseTest(
     }
 
     // Add batch information to the message
+    // If no match was found, use the default batch from group info if available
+    const defaultBatch = groupInfo.DefaultBatch || null;
     return {
       ...message,
-      batch: matchedBatch,
+      batch: matchedBatch || defaultBatch,
     };
+  });
+
+  // Count messages per batch
+  const batchCounts: Record<string, number> = {};
+  messagesWithBatches.forEach(msg => {
+    const batch = msg.batch || 'unassigned';
+    batchCounts[batch] = (batchCounts[batch] || 0) + 1;
+  });
+
+  // Log batch statistics
+  console.log('Batch assignment summary:');
+  Object.entries(batchCounts).forEach(([batchName, count]) => {
+    console.log(`- ${batchName}: ${count} messages`);
   });
 
   // Step: Create a comprehensive result object
@@ -248,8 +309,15 @@ export function parseTest(
       ? registrationEnd.timestamp
       : null,
 
-    // Include all messages with formatted timestamps, sender names, and batch assignments
-    allMessages: messagesWithBatches,
+    // Messages with parsed information
+    messages: messagesWithBatches,
+    // Classify messages by batch for easy access
+    messagesByBatch: Object.fromEntries(
+      [...new Set(messagesWithBatches.map(msg => msg.batch || 'unassigned'))].map(batchName => [
+        batchName,
+        messagesWithBatches.filter(msg => (msg.batch || 'unassigned') === batchName)
+      ])
+    ),
 
     // Include the parsing results
     parsingResult: {

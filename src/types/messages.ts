@@ -18,6 +18,8 @@ export interface WhatsAppMessage {
   content: string;
   is_from_me?: number;
   fromMe?: boolean;  // Added for compatibility with message formats that use this property
+  batch?: string | null;   // Assigned batch/timeslot based on keywords
+  modifier?: string; // Message classification (IN, OUT, TEAM, CONVERSATION)
 }
 
 /**
