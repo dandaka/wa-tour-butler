@@ -540,13 +540,13 @@ describe("Parser Main", () => {
     });
 
     console.log("Message counts:", messageCounts);
-    
+
     // Verify we have at least one of each main type
     expect(messageCounts.conversation).toBeGreaterThan(0);
     expect(messageCounts.in).toBeGreaterThan(0);
     expect(messageCounts.out).toBeGreaterThan(0);
   });
-  
+
   test("should correctly assign batch 15 to messages with '15h' time slot", () => {
     // Load the data from result.json
     const resultPath = path.join(
@@ -556,35 +556,39 @@ describe("Parser Main", () => {
       "result.json"
     );
     const result = JSON.parse(fs.readFileSync(resultPath, "utf8"));
-    
+
     // Find specific messages with time slot 15h
     const danMessage = result.messages.find(
       (msg: any) => msg.content === "Dan 15h" && msg.sender_name === "Dan"
     );
-    
+
     const teamMessage = result.messages.find(
-      (msg: any) => msg.content === "Martin and Peter at 15h" && msg.sender_name === "André Silva"
+      (msg: any) =>
+        msg.content === "Martin and Peter at 15h" &&
+        msg.sender_name === "André Silva"
     );
-    
+
     // These messages should be classified as "in" commands
     expect(danMessage).toBeDefined();
     expect(teamMessage).toBeDefined();
-    
+
     // The messages should be properly classified (not as conversation)
     expect(danMessage?.modifier).not.toBe("conversation");
     expect(teamMessage?.modifier).not.toBe("conversation");
-    
+
     // They should also have batch "15" assigned
     expect(danMessage?.batch).toBe("15");
     expect(teamMessage?.batch).toBe("15");
   });
-  
+
   test("should correctly detect team signups with time slots", () => {
     // Find the team message using shared resultData
     const teamMessage = resultData.messages.find(
-      (msg: any) => msg.content === "Martin and Peter at 15h" && msg.sender_name === "André Silva"
+      (msg: any) =>
+        msg.content === "Martin and Peter at 15h" &&
+        msg.sender_name === "André Silva"
     );
-    
+
     // This message should be properly classified as a team signup
     expect(teamMessage).toBeDefined();
     expect(teamMessage?.modifier).toBe("in");
@@ -594,9 +598,11 @@ describe("Parser Main", () => {
   test("should correctly parse 'with partner' messages", () => {
     // Find the partner message using shared resultData
     const partnerMessage = resultData.messages.find(
-      (msg: any) => msg.content === "Bob in with partner 17:00" && msg.sender_name === "Bob Stolk"
+      (msg: any) =>
+        msg.content === "Bob in with partner 17:00" &&
+        msg.sender_name === "Bob Stolk"
     );
-    
+
     // This tests the expected behavior
     expect(partnerMessage).toBeDefined();
     expect(partnerMessage?.modifier).toBe("in");
@@ -608,23 +614,30 @@ describe("Parser Main", () => {
   test("should correctly parse '& Partner' messages", () => {
     // Find the & Partner message using shared resultData
     const ampersandPartnerMessage = resultData.messages.find(
-      (msg: any) => msg.content === "Kevin & Partner in 15h" && msg.sender_name === "Kevin Feldengut"
+      (msg: any) =>
+        msg.content === "Kevin & Partner in 15h" &&
+        msg.sender_name === "Kevin Feldengut"
     );
-    
+
     // This tests the expected behavior
     expect(ampersandPartnerMessage).toBeDefined();
     expect(ampersandPartnerMessage?.modifier).toBe("in");
     expect(ampersandPartnerMessage?.batch).toBe("15");
-    expect(ampersandPartnerMessage?.players).toEqual(["Kevin", "Kevin's partner"]);
+    expect(ampersandPartnerMessage?.players).toEqual([
+      "Kevin",
+      "Kevin's partner",
+    ]);
     expect(ampersandPartnerMessage?.isTeam).toBe(true);
   });
 
   test("should correctly identify team OUT messages", () => {
     // Find the OUT team message using shared resultData
     const outTeamMessage = resultData.messages.find(
-      (msg: any) => msg.content === "Nikita & partner OUT 15 and 17" && msg.sender_name === "Nikita S."
+      (msg: any) =>
+        msg.content === "Nikita & partner OUT 15 and 17" &&
+        msg.sender_name === "Nikita S."
     );
-    
+
     // This tests the expected behavior
     expect(outTeamMessage).toBeDefined();
     expect(outTeamMessage?.modifier).toBe("out");
@@ -683,5 +696,28 @@ describe("Parser Main", () => {
         );
       }
     }
+  });
+
+  test("should enforce player count limits for team signups", () => {
+    // Find messages with more than 2 players
+    const invalidPlayerCounts = resultData.messages.filter(
+      (msg: any) => Array.isArray(msg.players) && msg.players.length > 2
+    );
+
+    // Check specific problematic message
+    const multilineTeamMessage = resultData.messages.find((msg: any) =>
+      msg.content?.includes("Julien / Mark - 15h\nJulien / Mike - 17h")
+    );
+
+    expect(multilineTeamMessage).toBeDefined();
+    expect(invalidPlayerCounts).toEqual([]);
+
+    // Verify all messages have valid player counts
+    resultData.messages.forEach((msg: any) => {
+      if (Array.isArray(msg.players)) {
+        expect(msg.players.length).toBeGreaterThanOrEqual(1);
+        expect(msg.players.length).toBeLessThanOrEqual(2);
+      }
+    });
   });
 });
