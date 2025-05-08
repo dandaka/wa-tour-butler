@@ -632,6 +632,28 @@ describe("Parser Main", () => {
     expect(ampersandPartnerMessage?.isTeam).toBe(true);
   });
 
+  test("should correctly identify team OUT messages", () => {
+    // Load the data from result.json
+    const resultPath = path.join(
+      process.cwd(),
+      "data",
+      "test-data",
+      "result.json"
+    );
+    const result = JSON.parse(fs.readFileSync(resultPath, "utf8"));
+    
+    // Find the OUT team message
+    const outTeamMessage = result.messages.find(
+      (msg: any) => msg.content === "Nikita & partner OUT 15 and 17" && msg.sender_name === "Nikita S."
+    );
+    
+    // This tests the expected behavior (will fail with current implementation)
+    expect(outTeamMessage).toBeDefined();
+    expect(outTeamMessage?.modifier).toBe("out");
+    expect(outTeamMessage?.batch).toBe("15");
+    expect(outTeamMessage?.isTeam).toBe(true);
+  });
+
   test("should correctly integrate registration end detection", () => {
     // Call the full parser
     const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
