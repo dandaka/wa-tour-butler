@@ -7,15 +7,13 @@
     "build": "tsc",
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
-    "test": "jest",
-    "groups": "ts-node src/scripts/fetchGroupIds.ts",
-    "fetch-groups": "ts-node src/scripts/fetchGroupChats.ts",
-    "whatsapp-login": "ts-node src/scripts/whatsappLogin.ts",
+    "groups": "ts-node src/scripts/fetch-group-ids.ts",
+    "fetch-groups": "ts-node src/scripts/fetch-group-chats.ts",
+    "whatsapp-login": "ts-node src/scripts/whatsapp-login.ts",
     "fetch-history": "ts-node src/scripts/fetch-history.ts",
     "start": "ts-node src/scripts/monitor-messages.ts",
-    "view": "ts-node src/scripts/view-db-messages.ts",
     "parse": "ts-node src/parser/parse.ts",
-    "parse-test": "jest src/tests/parse.test.ts --colors"
+    "test": "jest src/tests/parse.test.ts --colors"
   },
   "keywords": [
     "whatsapp",
