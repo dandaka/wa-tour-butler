@@ -75,7 +75,6 @@ export const MESSAGE_PATTERNS = {
 
   // Partner detection patterns
   ANON_PARTNER_PATTERNS: [
-    /(?:^|\s)(?:with\s+)?partner(?:\s|$)/i,
     /(?:\+|\s+\+\s+)partner/i
   ],
 };

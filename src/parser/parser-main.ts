@@ -96,15 +96,18 @@ export function parseTest(
     // Step: Remove system messages with bracketed content
     .filter((message) => !/^\s*\[[^\]]+\]\s*$/.test(message.content))
     // Step: Filter out very short messages or just numbers
-    .filter((message) => !(message.content.match(/^(\d+)$/) !== null || message.content.length < 3))
+    .filter(
+      (message) =>
+        !(
+          message.content.match(/^(\d+)$/) !== null ||
+          message.content.length < 3
+        )
+    )
     // Initial conversion to our unified message format
     .map(({ id, timestamp, sender, content }) => {
       // Format timestamp
       const date = new Date(timestamp * 1000);
-      const formatted = date
-        .toISOString()
-        .replace("T", " ")
-        .substring(0, 19); // YYYY-MM-DD HH:MM:SS format
+      const formatted = date.toISOString().replace("T", " ").substring(0, 19); // YYYY-MM-DD HH:MM:SS format
 
       // Create our initial enhanced message
       return {
@@ -115,7 +118,7 @@ export function parseTest(
         timestamp_fmt: formatted, // Initialize formatted timestamp
         sender_name: sender.split("@")[0], // Default to phone number initially
         batch: null, // Initialize with no batch
-        modifier: MessageCommand.CONVERSATION // Default classification
+        modifier: MessageCommand.CONVERSATION, // Default classification
       } as EnhancedWhatsAppMessage;
     });
 
@@ -132,10 +135,16 @@ export function parseTest(
     Object.keys(parsedContacts).forEach((key) => {
       contactsObj[key] = parsedContacts[key];
     });
-    console.log(`Loaded ${Object.keys(contactsObj).length} contacts from ${contactsFilePath}`);
+    console.log(
+      `Loaded ${
+        Object.keys(contactsObj).length
+      } contacts from ${contactsFilePath}`
+    );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.warn(`Could not load contacts file: ${errorMessage}. Using empty contacts map.`);
+    console.warn(
+      `Could not load contacts file: ${errorMessage}. Using empty contacts map.`
+    );
   }
 
   // Apply contact names to messages in place
@@ -183,7 +192,9 @@ export function parseTest(
 
     // Apply classification rules in priority order
     // 1. Check for conversation patterns first (but not if it has a batch assigned)
-    const isConversation = MESSAGE_PATTERNS.CONVERSATION_PATTERNS.some((pattern) => pattern.test(content));
+    const isConversation = MESSAGE_PATTERNS.CONVERSATION_PATTERNS.some(
+      (pattern) => pattern.test(content)
+    );
     if (isConversation && !hasBatch) {
       message.modifier = MessageCommand.CONVERSATION;
     }
@@ -199,7 +210,9 @@ export function parseTest(
     }
 
     // 4. Check for TEAM_UP commands using any pattern in the array
-    else if (MESSAGE_PATTERNS.TEAM_UP_PATTERNS.some(pattern => pattern.test(content))) {
+    else if (
+      MESSAGE_PATTERNS.TEAM_UP_PATTERNS.some((pattern) => pattern.test(content))
+    ) {
       message.modifier = MessageCommand.TEAM;
     }
 
@@ -211,7 +224,7 @@ export function parseTest(
   });
 
   // Step: Parse player names
-  processedMessages.forEach(message => {
+  processedMessages.forEach((message) => {
     // Only process messages with IN, OUT, or TEAM modifiers
     if (
       message.modifier === MessageCommand.IN ||
@@ -222,38 +235,54 @@ export function parseTest(
       let content = message.content.trim();
       let isTeam = false;
       let players: string[] = [];
-      
+
       // 1. Remove batch names from message
       if (message.batch) {
         const batchNames = groupInfo.Batches?.map((b: any) => b.name) || [];
-        const batchKeywords = groupInfo.Batches?.flatMap((b: any) => b.keywords || []) || [];
-        
+        const batchKeywords =
+          groupInfo.Batches?.flatMap((b: any) => b.keywords || []) || [];
+
         // Remove batch names and keywords, sorting by length (longest first)
         [...batchNames, ...batchKeywords]
           .sort((a, b) => b.length - a.length)
-          .forEach(keyword => {
-            content = content.replace(new RegExp(`\\b${keyword}\\b`, 'i'), '');
+          .forEach((keyword) => {
+            content = content.replace(new RegExp(`\\b${keyword}\\b`, "i"), "");
           });
       }
-      
+
       // 2. Remove command keywords
       content = content
-        .replace(MESSAGE_PATTERNS.IN_COMMAND, '')
-        .replace(MESSAGE_PATTERNS.OUT_COMMAND, '');
-        
-      // Remove all team up pattern matches
-      MESSAGE_PATTERNS.TEAM_UP_PATTERNS.forEach(pattern => {
-        content = content.replace(pattern, '');
-      });
+        .replace(MESSAGE_PATTERNS.IN_COMMAND, "")
+        .replace(MESSAGE_PATTERNS.OUT_COMMAND, "");
+
+      // 3. Check for anonymous partner patterns
+      let hasAnonPartner = false;
+      // Sort patterns by length (longest first) to avoid partial replacements
+      const sortedAnonPartnerPatterns = [
+        ...MESSAGE_PATTERNS.ANON_PARTNER_PATTERNS,
+      ].sort((a, b) => b.source.length - a.source.length);
+
+      // Check for matches and remove patterns
+      for (const pattern of sortedAnonPartnerPatterns) {
+        if (pattern.test(content)) {
+          hasAnonPartner = true;
+          content = content.replace(pattern, "");
+        }
+      }
+      
+      // Only include hasAnonPartner in the output if it's true (to avoid clutter in the JSON)
+      if (hasAnonPartner) {
+        (message as any).hasAnonPartner = true;
+      }
 
       // Store in each message resulting message_stripped parameter so I can debug
       (message as any).message_stripped = content.trim();
-      
+
       // 3. Try to find team delimiters
       // Count how many delimiter patterns match in the content
       let delimiterCount = 0;
       let matchedDelimiter = null;
-      
+
       // Check each delimiter pattern
       for (const delimiterPattern of MESSAGE_PATTERNS.TEAM_DELIMITERS) {
         if (delimiterPattern.test(content)) {
@@ -262,73 +291,78 @@ export function parseTest(
           if (delimiterCount > 1) break; // No need to keep checking if we found multiple
         }
       }
-      
+
       // Team detection logic
       if (delimiterCount === 1) {
         // Mark as team and split players
         isTeam = true;
-        
+
         // Important: If the message contains "in" and has a batch assignment,
         // preserve the IN modifier for registration purposes,
         // but still detect the team information
         if (!(message.modifier === MessageCommand.IN && message.batch)) {
           message.modifier = MessageCommand.TEAM;
         }
-        
+
         // Split by the matched team delimiter to get player names
         if (matchedDelimiter) {
-          players = content.split(matchedDelimiter)
-            .map(name => name.trim())
-            .filter(name => name.length > 0);
+          players = content
+            .split(matchedDelimiter)
+            .map((name) => name.trim())
+            .filter((name) => name.length > 0);
         }
-      } 
-      else if (delimiterCount > 1) {
+      } else if (delimiterCount > 1) {
         // More than one delimiter - message might be too complex
         message.modifier = MessageCommand.CONVERSATION;
-      }
-      else {
+      } else {
         // No team delimiter - treat as single player
         content = content.trim();
-        
+
         // Check if it's a reasonable name length (not too long)
         const wordCount = content.split(/\s+/).length;
         if (wordCount <= MAX_NAME_WORDS && content.length > 0) {
           players = [content];
-        }
-        else if (message.sender_name && message.sender_name !== message.sender.split('@')[0]) {
+        } else if (
+          message.sender_name &&
+          message.sender_name !== message.sender.split("@")[0]
+        ) {
           // If no explicit name in message, use sender_name if it's not just the phone number
           players = [message.sender_name];
         }
       }
-      
+
       // 5. Handle partner pattern
       // Check if any partner pattern matches
-      const hasPartnerPattern = players.length === 1 && MESSAGE_PATTERNS.ANON_PARTNER_PATTERNS.some(pattern => pattern.test(players[0]));
-      
+      const hasPartnerPattern =
+        players.length === 1 &&
+        MESSAGE_PATTERNS.ANON_PARTNER_PATTERNS.some((pattern) =>
+          pattern.test(players[0])
+        );
+
       if (hasPartnerPattern) {
         // It's a message with 'partner' in it - player is signing up with anonymous partner
         // Extract the name and add a placeholder for the partner
         let playerName = players[0];
-        
+
         // Remove all partner patterns from the player name
-        MESSAGE_PATTERNS.ANON_PARTNER_PATTERNS.forEach(pattern => {
-          playerName = playerName.replace(pattern, '');
+        MESSAGE_PATTERNS.ANON_PARTNER_PATTERNS.forEach((pattern) => {
+          playerName = playerName.replace(pattern, "");
         });
-        
+
         playerName = playerName.trim();
-        
+
         if (playerName) {
           isTeam = true;
-          
+
           // Only change the modifier if it's not an IN message with batch assignment
           if (!(message.modifier === MessageCommand.IN && message.batch)) {
             message.modifier = MessageCommand.TEAM;
           }
-          
+
           players = [playerName, `${playerName}'s partner`];
         }
       }
-      
+
       // Add players and team status to the message
       (message as any).players = players;
       (message as any).isTeam = isTeam;
@@ -386,10 +420,6 @@ if (require.main === module) {
   );
   const groupsFilePath = path.join(testDataDir, "groups-test.json");
   const targetGroupId = "120363028202164779@g.us";
-  
-  parseTest(
-    messagesFilePath,
-    groupsFilePath,
-    targetGroupId
-  );
+
+  parseTest(messagesFilePath, groupsFilePath, targetGroupId);
 }
