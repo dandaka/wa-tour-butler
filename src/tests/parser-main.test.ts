@@ -606,6 +606,7 @@ describe("Parser Main", () => {
     // This tests the expected behavior
     expect(partnerMessage).toBeDefined();
     expect(partnerMessage?.modifier).toBe("in");
+    expect(partnerMessage?.hasAnonPartner).toBe(true);
     expect(partnerMessage?.batch).toBe("17");
     expect(partnerMessage?.players).toEqual(["Bob", "Bob's partner"]);
     expect(partnerMessage?.isTeam).toBe(true);
