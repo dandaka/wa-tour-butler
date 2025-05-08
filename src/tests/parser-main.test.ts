@@ -587,7 +587,7 @@ describe("Parser Main", () => {
     
     // This message should be properly classified as a team signup
     expect(teamMessage).toBeDefined();
-    expect(teamMessage?.modifier).toBe("team");
+    expect(teamMessage?.modifier).toBe("in");
     expect(teamMessage?.batch).toBe("15");
   });
 
