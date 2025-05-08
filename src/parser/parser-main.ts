@@ -289,6 +289,23 @@ export function parseTest(
       // Store in each message resulting message_stripped parameter so I can debug
       (message as any).message_stripped = content.trim();
 
+      // Split message_stripped into players array by "AND"
+      players = content.split(" AND ").map((player) => player.trim());
+
+      if (players.length > 1) {
+        (message as any).isTeam = true;
+      }
+
+      // If second player name has at least 1 match with any of ANON_PARTNER_PATTERNS, replace name with "Player1's partner"
+      if (players.length > 1) {
+        for (const pattern of sortedAnonPartnerPatterns) {
+          if (pattern.test(players[1])) {
+            players[1] = players[0] + "'s partner";
+            break;
+          }
+        }
+      }
+
       // Add players and team status to the message
       (message as any).players = players;
       (message as any).isTeam = isTeam;
