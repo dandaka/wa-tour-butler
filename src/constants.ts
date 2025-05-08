@@ -22,22 +22,6 @@ export const REGISTRATION_KEYWORDS = [
   'Registros'  
 ];
 
-// Time Patterns
-export const TIME_PATTERNS = {
-  // Common formats: 15h, 15:00, 15:30h, 15.00
-  TIME_FORMAT_HOUR_MINUTES: /\b(\d{1,2})(?::h?|h:?|\.)?(\d{2})?h?\b/i,
-  // Simple hour format: 15h or just 15
-  TIME_FORMAT_HOUR_ONLY: /\b(\d{1,2})h?\b/i,
-  // Matches time at the end of a string: "in 15h", "at 14:00"
-  TIME_AT_END: /\s+(\d{1,2}(?:[h:.]\d{0,2})?)$/i,
-  // Matches multiple time slots - capturing the first time
-  MULTIPLE_TIMES: /\b(\d{1,2})\s+(?:and|e|&|\+)\s+\d{1,2}\b/i,
-  // Matches second time slot after a connector
-  SECOND_TIME: /(?:and|e|&|\+)\s+(\d+[h:.]?\d*)/i,
-  // Specific time format without h/: suffix (just a number like "in 15")
-  NUMERIC_TIME: /\s+(\d{1,2})$/i
-};
-
 // Message Classification Patterns
 export const MESSAGE_PATTERNS = {
   // IN message patterns
@@ -70,15 +54,10 @@ export const MESSAGE_PATTERNS = {
   
   // System message patterns
   SYSTEM_MESSAGE: /^(system|protocol):/i,
-  BRACKET_CONTENT: /\[.*?\]/g
-};
+  BRACKET_CONTENT: /\[.*?\]/g,
 
-// Name Cleaning Patterns
-export const NAME_PATTERNS = {
-  REMOVE_IN_COMMAND: /\s+in\b/i,
-  REMOVE_AT_COMMAND: /\s+at\b/i,
-  REMOVE_TIME_SUFFIX: /\s+\d+[h:.\s]\d*\s*$/i,
-  CLEANUP_WHITESPACE: /\s+/g
+  // Partner detection pattern
+  PARTNER_PATTERN: /(?:^|\s)partner(?:\s|$)/i,
 };
 
 // Max Words for Player Names
