@@ -58,50 +58,71 @@ export function loadContacts(filePath: string): Contact[] {
  * @param groupId ID of the group to parse
  * @returns Result of the registration start detection
  */
-export function parseTest(messagesFilePath: string, groupInfoFilePath: string, groupId: string) {
-  // Step 1: Load messages
+export function parseTest(
+  messagesFilePath: string,
+  groupInfoFilePath: string,
+  groupId: string
+) {
+  // Step: Load messages
   const messages = loadMessages(messagesFilePath);
-  
-  // Step 2: Load group info
-  const groupsData = JSON.parse(fs.readFileSync(groupInfoFilePath, 'utf8'));
+
+  // Step: Load group info
+  const groupsData = JSON.parse(fs.readFileSync(groupInfoFilePath, "utf8"));
   const groupInfo = groupsData.find((g: GroupInfo) => g.ID === groupId);
-  
+
   if (!groupInfo) {
     console.error(`Group with ID ${groupId} not found in group info file`);
     return { success: false };
   }
-  
-  // Step 3: Use detectRegistrationStart function
+
+  // Step: Use detectRegistrationStart function
   const registrationStart = detectRegistrationStart(messages, groupInfo, 0);
-  
-  // Step 4: Calculate registration end time if registration start was successful
+
+  // Step: Calculate registration end time if registration start was successful
   let registrationEnd = { timestamp: 0, success: false };
   if (registrationStart.success && registrationStart.timestamp) {
-    registrationEnd = calculateRegistrationEndTime(registrationStart.timestamp, groupInfo);
+    registrationEnd = calculateRegistrationEndTime(
+      registrationStart.timestamp,
+      groupInfo
+    );
   }
-  
-  // Step 5: Create a comprehensive result object
+
+  // Step: Remove messages with empty content and clean up properties
+  const cleanedMessages = messages
+    .filter((message) => message.content.trim().length > 0)
+    .map(({ id, timestamp, sender, content }) => ({
+      id,
+      timestamp,
+      sender,
+      content,
+    }));
+
+  // Step: Create a comprehensive result object
   const fullResult = {
     // Include group info
     groupInfo: groupInfo,
-    
+
     // Include the registration open message and time (if found)
-    registrationMessage: registrationStart.success ? registrationStart.message : null,
+    registrationMessage: registrationStart.success
+      ? registrationStart.message
+      : null,
     registrationStartTime: registrationStart.timestamp,
-    
+
     // Include registration end time (if calculated)
-    registrationEndTime: registrationEnd.success ? registrationEnd.timestamp : null,
-    
-    // Include all messages
-    allMessages: messages,
-    
+    registrationEndTime: registrationEnd.success
+      ? registrationEnd.timestamp
+      : null,
+
+    // Include all cleaned messages
+    allMessages: cleanedMessages,
+
     // Include the parsing results
     parsingResult: {
       registrationStart: registrationStart,
-      registrationEnd: registrationEnd
-    }
+      registrationEnd: registrationEnd,
+    },
   };
-  
+
   // Step 6: Return the full result
   return fullResult;
 }

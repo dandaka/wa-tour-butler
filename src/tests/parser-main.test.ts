@@ -175,6 +175,46 @@ describe("Parser Main", () => {
     }
   });
 
+  // Test message cleaning to remove empty content
+  test('should remove messages with empty content', () => {
+    // Call the full parser
+    const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
+    
+    // Check if the result is a success object with the right structure
+    expect(result).toBeDefined();
+    expect('groupInfo' in result).toBe(true);
+    
+    // Since we've confirmed the result has the right structure, we can type cast it safely
+    const fullResult = result as ParseTestResult;
+    
+    // Verify that all messages have content (not empty)
+    fullResult.allMessages.forEach(message => {
+      expect(message.content.trim().length).toBeGreaterThan(0);
+    });
+    
+    console.log(`Empty content test successful: Verified ${fullResult.allMessages.length} messages have content`);
+  });
+  
+  // Test message cleaning to remove fromMe property
+  test('should remove fromMe property from all messages', () => {
+    // Call the full parser
+    const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
+    
+    // Check if the result is a success object with the right structure
+    expect(result).toBeDefined();
+    expect('groupInfo' in result).toBe(true);
+    
+    // Since we've confirmed the result has the right structure, we can type cast it safely
+    const fullResult = result as ParseTestResult;
+    
+    // Verify that none of the messages have the fromMe property
+    fullResult.allMessages.forEach(message => {
+      expect(message).not.toHaveProperty('fromMe');
+    });
+    
+    console.log(`FromMe property test successful: Verified ${fullResult.allMessages.length} messages`);
+  });
+  
   // Test the complete integration of registration end detection
   test('should correctly integrate registration end detection', () => {
     // Call the full parser
