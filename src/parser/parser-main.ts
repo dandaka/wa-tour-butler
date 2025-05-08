@@ -164,22 +164,6 @@ export function parseTest(
       sender_name: contactName
     };
   });
-  
-  // Log some examples of the contact mapping
-  const examples = messagesWithSenderNames
-    .filter(msg => msg.sender_name !== msg.sender.split('@')[0])
-    .slice(0, 5);
-  
-  if (examples.length > 0) {
-    console.log('Examples of sender name mapping (phone number → contact name):');
-    examples.forEach(msg => {
-      console.log(`${msg.sender.split('@')[0]} → ${msg.sender_name}`);
-    });
-  } else {
-    console.log('No contact matches found in sample messages');
-  }
-  
-  // We've already logged examples above, so nothing more needed here
 
   // Step: Create a comprehensive result object
   const fullResult = {

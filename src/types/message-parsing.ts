@@ -45,3 +45,20 @@ export interface MsgParsed {
   teamId?: number;
   batch?: string; // Generic grouping (time slots, event types, etc.)
 }
+
+export interface MsgParsedNew {
+  // Source data
+  content: string;
+  sender: string; // Phone number of sender
+  sender_name?: string; // Display name from contacts
+  timestamp: number; // Unix timestamp
+  timestamp_fmt: string; // Timestamp in format YYYY-MM-DD HH:MM:SS
+  
+  // Parsed information (populated step by step)
+  players: PlayerInfo[];
+  modifier: MessageCommand;
+  isTeam: boolean;
+  teamId?: number;
+  batch?: string; // Generic grouping (time slots, event types, etc.)
+}
+
