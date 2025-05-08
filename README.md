@@ -44,13 +44,8 @@ pnpm run start --group-id=120363028202164779@g.us
 ### Processing Signup Messages
 ```bash
 # Process all signup messages from configured groups
-pnpm run parse-all
+pnpm run parse
 
-# Process signups and output to a specific file
-pnpm run parse-all --output=tournament-players.md
-
-# Process signups from a specific date
-pnpm run parse-all --since=2023-10-01
 ```
 
 
@@ -80,19 +75,6 @@ pnpm run dev
 - Source code is in the `src` directory
 - Compiled code will be in the `dist` directory
 
-## Scripts
-
-- `pnpm run dev` - Start the application in development mode
-- `pnpm run build` - Build the project
-- `pnpm run start` - Start the built application
-- `pnpm run watch` - Build and watch for changes
-- `pnpm run whatsapp-login` - Connect to WhatsApp Web and create session files
-- `pnpm run fetch-history` - Send a request to WhatsApp to sync message history for the past day
-- `pnpm run parse-all` - Process signup messages from all configured groups (defined in groups.csv)
-- `pnpm run view-messages` - Display messages from the target group in chronological order
-  - Optional parameters: `--newest-first`, `--limit=10`
-- `pnpm run fetch-groups` - List all available WhatsApp groups
-- `pnpm run fetch-group-ids` - Output all WhatsApp groups in CSV format (ID,Name) for easy update of groups.csv
 
 ## Planned Features
 
