@@ -247,8 +247,18 @@ export function parseTest(
       });
       
       // 3. Try to find team delimiters
-      const teamDelimiterMatches = content.match(new RegExp(MESSAGE_PATTERNS.TEAM_DELIMITER, 'g'));
-      const delimiterCount = teamDelimiterMatches ? teamDelimiterMatches.length : 0;
+      // Count how many delimiter patterns match in the content
+      let delimiterCount = 0;
+      let matchedDelimiter = null;
+      
+      // Check each delimiter pattern
+      for (const delimiterPattern of MESSAGE_PATTERNS.TEAM_DELIMITERS) {
+        if (delimiterPattern.test(content)) {
+          delimiterCount++;
+          matchedDelimiter = delimiterPattern;
+          if (delimiterCount > 1) break; // No need to keep checking if we found multiple
+        }
+      }
       
       // Team detection logic
       if (delimiterCount === 1) {
@@ -262,10 +272,12 @@ export function parseTest(
           message.modifier = MessageCommand.TEAM;
         }
         
-        // Split by team delimiter to get player names
-        players = content.split(MESSAGE_PATTERNS.TEAM_DELIMITER)
-          .map(name => name.trim())
-          .filter(name => name.length > 0);
+        // Split by the matched team delimiter to get player names
+        if (matchedDelimiter) {
+          players = content.split(matchedDelimiter)
+            .map(name => name.trim())
+            .filter(name => name.length > 0);
+        }
       } 
       else if (delimiterCount > 1) {
         // More than one delimiter - message might be too complex

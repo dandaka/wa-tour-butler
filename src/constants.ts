@@ -31,7 +31,14 @@ export const MESSAGE_PATTERNS = {
   OUT_COMMAND: /(?:^|\s)out(?:\s|$)/i,
   
   // Team and player patterns
-  TEAM_DELIMITER: /\s+(?:e|and|com|\+|\/|\&)\s+/i,
+  TEAM_DELIMITERS: [
+    /\s+e\s+/i,
+    /\s+and\s+/i,
+    /\s+com\s+/i,
+    /\s+\+\s+/i,
+    /\s+\/\s+/i,
+    /\s+\&\s+/i
+  ],
 
   // Team formation patterns
   TEAM_UP_PATTERNS: [
