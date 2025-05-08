@@ -609,6 +609,29 @@ describe("Parser Main", () => {
     expect(partnerMessage?.isTeam).toBe(true);
   });
 
+  test("should correctly parse '& Partner' messages", () => {
+    // Load the data from result.json
+    const resultPath = path.join(
+      process.cwd(),
+      "data",
+      "test-data",
+      "result.json"
+    );
+    const result = JSON.parse(fs.readFileSync(resultPath, "utf8"));
+    
+    // Find the & Partner message
+    const ampersandPartnerMessage = result.messages.find(
+      (msg: any) => msg.content === "Kevin & Partner in 15h" && msg.sender_name === "Kevin Feldengut"
+    );
+    
+    // This tests the expected behavior (will fail with current implementation)
+    expect(ampersandPartnerMessage).toBeDefined();
+    expect(ampersandPartnerMessage?.modifier).toBe("in");
+    expect(ampersandPartnerMessage?.batch).toBe("15");
+    expect(ampersandPartnerMessage?.players).toEqual(["Kevin", "Kevin's partner"]);
+    expect(ampersandPartnerMessage?.isTeam).toBe(true);
+  });
+
   test("should correctly integrate registration end detection", () => {
     // Call the full parser
     const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
