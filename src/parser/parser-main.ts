@@ -228,10 +228,12 @@ export function parseTest(
         const batchNames = groupInfo.Batches?.map((b: any) => b.name) || [];
         const batchKeywords = groupInfo.Batches?.flatMap((b: any) => b.keywords || []) || [];
         
-        // Remove batch names and keywords
-        [...batchNames, ...batchKeywords].forEach(keyword => {
-          content = content.replace(new RegExp(`\\b${keyword}\\b`, 'i'), '');
-        });
+        // Remove batch names and keywords, sorting by length (longest first)
+        [...batchNames, ...batchKeywords]
+          .sort((a, b) => b.length - a.length)
+          .forEach(keyword => {
+            content = content.replace(new RegExp(`\\b${keyword}\\b`, 'i'), '');
+          });
       }
       
       // 2. Remove command keywords

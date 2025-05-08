@@ -57,7 +57,7 @@ export const MESSAGE_PATTERNS = {
   BRACKET_CONTENT: /\[.*?\]/g,
 
   // Partner detection pattern
-  PARTNER_PATTERN: /(?:^|\s)partner(?:\s|$)/i,
+  PARTNER_PATTERN: /(?:^|\s)(?:with\s+)?partner(?:\s|$)/i,
 };
 
 // Max Words for Player Names
