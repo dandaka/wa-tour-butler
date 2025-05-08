@@ -175,6 +175,17 @@ export function parseTest(
     };
   });
 
+  // Step: Classify messages
+  /* 
+  0. Import MessageCommand from message-parsing.ts
+  1. Using CONVERSATION_PATTERNS from @constants.ts find all conversation messages. If on is found, assign type "CONVERSATION" and break the loop.
+  2. Using IN_COMMAND from @constants.ts find all registration messages. If one is found, assign type "IN" and break the loop.
+  3. Using OUT_COMMAND from @constants.ts find all registration messages. If one is found, assign type "OUT" and break the loop.
+  4. Using TEAM_UP from @constants.ts find all registration messages. If one is found, assign type "TEAM" and break the loop.
+  5. If none is found, assign "CONVERSATION" and break.
+  
+  */
+
   // Step: Parse batches
   // 1. Extract batches info from group info
   const batches = groupInfo.Batches || [];

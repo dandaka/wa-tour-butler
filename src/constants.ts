@@ -45,13 +45,11 @@ export const MESSAGE_PATTERNS = {
   
   // OUT message patterns
   OUT_COMMAND: /(?:^|\s)out(?:\s|$)/i,
-  TEAM_OUT: /^([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+e\s+|\s+and\s+)([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+out\s+.*)(\d{1,2}[h:.]\d*|\d{1,2}h)\b/i,
-  PARTNER_OUT: /(?:my|([A-Za-z\u00C0-\u017F\s'\-\.]+?))\s+partner\s+(?:is\s+)?out/i,
   
   // Team and player patterns
   TEAM_DELIMITER: /\s+(?:e|and|com|\+|\/)\s+/i,
-  TEAM_WITH_TIME: /^([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+[&\/]\s+|\s+e\s+|\s+and\s+|\s+com\s+|\s+\+)([A-Za-z\u00C0-\u017F\s'\-\.@\d]+)(\s+.*)?$/i,
-  TEAM_AT_TIME: /^([A-Za-z\u00C0-\u017F\s'\-\.]+)(\s+and\s+|\s+e\s+|\s+&\s+)(.*?)\s+at\s+/i,
+
+  TEAM_UP: /(?:team\s*up|team|jogo\s*com|jogamos\s*juntos)/i,
   
   // Conversational filters
   CONVERSATION_PATTERNS: [
