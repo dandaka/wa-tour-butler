@@ -20,6 +20,20 @@ describe("Parser Main", () => {
   const groupsFilePath = path.join(testDataDir, "groups-test.json");
   const resultFilePath = path.join(testDataDir, "result.json");
 
+  // Common result.json data that multiple tests use
+  let resultData: any;
+
+  beforeEach(() => {
+    // Load the shared result.json data
+    const resultPath = path.join(
+      process.cwd(),
+      "data",
+      "test-data",
+      "result.json"
+    );
+    resultData = JSON.parse(fs.readFileSync(resultPath, "utf8"));
+  });
+
   // Load test data for all tests
   let messages: WhatsAppMessage[];
   let groupsData: any[];
@@ -566,17 +580,8 @@ describe("Parser Main", () => {
   });
   
   test("should correctly detect team signups with time slots", () => {
-    // Load the data from result.json
-    const resultPath = path.join(
-      process.cwd(),
-      "data",
-      "test-data",
-      "result.json"
-    );
-    const result = JSON.parse(fs.readFileSync(resultPath, "utf8"));
-    
-    // Find the team message
-    const teamMessage = result.messages.find(
+    // Find the team message using shared resultData
+    const teamMessage = resultData.messages.find(
       (msg: any) => msg.content === "Martin and Peter at 15h" && msg.sender_name === "André Silva"
     );
     
@@ -587,17 +592,8 @@ describe("Parser Main", () => {
   });
 
   test("should correctly parse 'with partner' messages", () => {
-    // Load the data from result.json
-    const resultPath = path.join(
-      process.cwd(),
-      "data",
-      "test-data",
-      "result.json"
-    );
-    const result = JSON.parse(fs.readFileSync(resultPath, "utf8"));
-    
-    // Find the partner message
-    const partnerMessage = result.messages.find(
+    // Find the partner message using shared resultData
+    const partnerMessage = resultData.messages.find(
       (msg: any) => msg.content === "Bob in with partner 17:00" && msg.sender_name === "Bob Stolk"
     );
     
@@ -610,17 +606,8 @@ describe("Parser Main", () => {
   });
 
   test("should correctly parse '& Partner' messages", () => {
-    // Load the data from result.json
-    const resultPath = path.join(
-      process.cwd(),
-      "data",
-      "test-data",
-      "result.json"
-    );
-    const result = JSON.parse(fs.readFileSync(resultPath, "utf8"));
-    
-    // Find the & Partner message
-    const ampersandPartnerMessage = result.messages.find(
+    // Find the & Partner message using shared resultData
+    const ampersandPartnerMessage = resultData.messages.find(
       (msg: any) => msg.content === "Kevin & Partner in 15h" && msg.sender_name === "Kevin Feldengut"
     );
     
@@ -633,17 +620,8 @@ describe("Parser Main", () => {
   });
 
   test("should correctly identify team OUT messages", () => {
-    // Load the data from result.json
-    const resultPath = path.join(
-      process.cwd(),
-      "data",
-      "test-data",
-      "result.json"
-    );
-    const result = JSON.parse(fs.readFileSync(resultPath, "utf8"));
-    
-    // Find the OUT team message
-    const outTeamMessage = result.messages.find(
+    // Find the OUT team message using shared resultData
+    const outTeamMessage = resultData.messages.find(
       (msg: any) => msg.content === "Nikita & partner OUT 15 and 17" && msg.sender_name === "Nikita S."
     );
     
