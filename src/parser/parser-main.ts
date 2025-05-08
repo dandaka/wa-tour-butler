@@ -3,21 +3,17 @@
  * Parses WhatsApp messages to extract player registrations for tournaments
  */
 
-import * as fs from "fs";
-import * as path from "path";
-
-// Import types from the types directory
-import { WhatsAppMessage } from "../types/messages";
-import { GroupInfo } from "../types/group-info";
-import { Contact, Player, ParsedRegistration } from "../types/parser";
+import fs from "fs";
+import path from "path";
+import { WhatsAppMessage, EnhancedWhatsAppMessage } from "../types/messages";
 import { MessageCommand } from "../types/message-parsing";
+import { GroupInfo } from "../types/group-info";
+import { MESSAGE_PATTERNS } from "../constants";
+import { Contact, Player, ParsedRegistration } from "../types/parser";
 
 // Import other modules
 import { detectRegistrationStart } from "./registration-start-detect";
 import { calculateRegistrationEndTime } from "./registration-end-detect";
-
-// Import constants
-import { MESSAGE_PATTERNS } from "../constants";
 
 /**
  * Loads WhatsApp messages from a JSON file
@@ -92,199 +88,126 @@ export function parseTest(
     );
   }
 
-  // Step: Remove messages with empty content and clean up properties
-  const cleanedMessages = messages
+  // Initialize our unified message structure
+  // Starting with messages that pass our basic filters
+  const processedMessages = messages
+    // Step: Remove messages with empty content
     .filter((message) => message.content.trim().length > 0)
-    .map(({ id, timestamp, sender, content }) => ({
-      id,
-      timestamp,
-      sender,
-      content,
-    }));
+    // Step: Remove system messages with bracketed content
+    .filter((message) => !/^\s*\[[^\]]+\]\s*$/.test(message.content))
+    // Step: Filter out very short messages or just numbers
+    .filter((message) => !(message.content.match(/^(\d+)$/) !== null || message.content.length < 3))
+    // Initial conversion to our unified message format
+    .map(({ id, timestamp, sender, content }) => {
+      // Format timestamp
+      const date = new Date(timestamp * 1000);
+      const formatted = date
+        .toISOString()
+        .replace("T", " ")
+        .substring(0, 19); // YYYY-MM-DD HH:MM:SS format
 
-  // Step: Remove system messages that only have content within square brackets
-  const systemMessagePattern = /^\s*\[[^\]]+\]\s*$/;
-  const filteredMessages = cleanedMessages.filter(
-    (message) => !systemMessagePattern.test(message.content)
-  );
+      // Create our initial enhanced message
+      return {
+        id,
+        timestamp,
+        sender,
+        content,
+        timestamp_fmt: formatted, // Initialize formatted timestamp
+        sender_name: sender.split("@")[0], // Default to phone number initially
+        batch: null, // Initialize with no batch
+        modifier: MessageCommand.CONVERSATION // Default classification
+      } as EnhancedWhatsAppMessage;
+    });
 
-  // Step: Filter out messages that are too short or just numbers (additional system message filtering)
-  const nonSystemMessages = filteredMessages.filter((message) => {
-    return !(
-      message.content.match(/^(\d+)$/) !== null || message.content.length < 3
-    );
-  });
-
-  // Step: Convert timestamps to readable format
-  // add timestamp_fmt to allMessages with YYYY-MM-DD HH:MM:SS format
-  const messagesWithFormattedTime = filteredMessages.map((message) => {
-    // Create a new Date object from the Unix timestamp (seconds to milliseconds)
-    const date = new Date(message.timestamp * 1000);
-
-    // Format the date as YYYY-MM-DD HH:MM:SS
-    const formatted = date
-      .toISOString()
-      .replace("T", " ") // Replace T separator with space
-      .substring(0, 19); // Take only YYYY-MM-DD HH:MM:SS part
-
-    // Return the message with an added timestamp_fmt field
-    return {
-      ...message,
-      timestamp_fmt: formatted,
-    };
-  });
-
-  // Step: Add sender name to messages from contacts.json
-  // Each message should have "sender_name"
-  // Extract directory path and use it to find contacts.json in the same directory
+  // Step: Add sender names from contacts.json
   const directory = path.dirname(messagesFilePath);
   const contactsFilePath = path.join(directory, "contacts.json");
   console.log(`Loading contacts from: ${contactsFilePath}`);
 
-  // Handle missing contacts file gracefully
+  // Load contacts
   const contactsObj: Record<string, string> = {};
   try {
     const contactsRaw = fs.readFileSync(contactsFilePath, "utf8");
     const parsedContacts = JSON.parse(contactsRaw) as Record<string, string>;
-
-    // Copy contacts to our object
     Object.keys(parsedContacts).forEach((key) => {
       contactsObj[key] = parsedContacts[key];
     });
-
-    console.log(
-      `Loaded ${
-        Object.keys(contactsObj).length
-      } contacts from ${contactsFilePath}`
-    );
+    console.log(`Loaded ${Object.keys(contactsObj).length} contacts from ${contactsFilePath}`);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `Could not load contacts file: ${errorMessage}. Using empty contacts map.`
-    );
+    console.warn(`Could not load contacts file: ${errorMessage}. Using empty contacts map.`);
   }
 
-  // Enrich messages with sender names
-  const messagesWithSenderNames = messagesWithFormattedTime.map((message) => {
-    // Extract the phone number from the sender field (remove @s.whatsapp.net if present)
+  // Apply contact names to messages in place
+  processedMessages.forEach((message) => {
     const phoneNumber = message.sender.split("@")[0];
-
-    // Look up the contact name directly from the contacts object
-    // If it exists, use it; otherwise use the phone number as the name
-    const contactName = contactsObj[phoneNumber] || phoneNumber;
-
-    return {
-      ...message,
-      sender_name: contactName,
-    };
+    message.sender_name = contactsObj[phoneNumber] || phoneNumber;
   });
 
-  // Step: Parse batches
-  // 1. Extract batches info from group info
+  // Step: Parse and apply batch information
   const batches = groupInfo.Batches || [];
   console.log(`Found ${batches.length} batches in group info`);
 
-  // Define type for messages with classification
-  type ClassifiedMessage = WhatsAppMessage & {
-    modifier: MessageCommand;
-    batch?: string | null;
-  };
+  // Apply batch detection to messages in place
+  if (batches.length > 0) {
+    processedMessages.forEach((message) => {
+      // Check message content against each batch's keywords
+      let matchedBatch = null;
 
-  // 2 & 3. For each message, check if it contains any batch keywords
-  const messagesWithBatches = messagesWithSenderNames.map((message) => {
-    // If we don't have batches defined, return message as is
-    if (batches.length === 0) {
-      return message;
-    }
+      // First try exact keyword matches
+      for (const batch of batches) {
+        const keywords = batch.keywords || [];
+        for (const keyword of keywords) {
+          const pattern = new RegExp(
+            `\\b${keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`,
+            "i"
+          );
 
-    // Check message content against each batch's keywords
-    let matchedBatch = null;
-
-    // First, try to find an exact match
-    for (const batch of batches) {
-      const keywords = batch.keywords || [];
-
-      // Check if message content contains any of the keywords
-      for (const keyword of keywords) {
-        // Create regex pattern for the keyword with word boundaries
-        const pattern = new RegExp(
-          `\\b${keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`,
-          "i"
-        );
-
-        if (pattern.test(message.content)) {
-          matchedBatch = batch.name;
-          break;
+          if (pattern.test(message.content)) {
+            matchedBatch = batch.name;
+            break;
+          }
         }
+        if (matchedBatch) break;
       }
+      // Apply the batch to the message
+      message.batch = matchedBatch;
+    });
+  }
 
-      // If we found a match, no need to check other batches
-      if (matchedBatch) {
-        break;
-      }
-    }
-
-    // Add batch information to the message
-    // If no match was found, use the default batch from group info if available
-    const defaultBatch = groupInfo.DefaultBatch || null;
-    return {
-      ...message,
-      batch: matchedBatch || defaultBatch,
-      modifier: MessageCommand.CONVERSATION, // Initialize modifier property for consistency
-    };
-  });
-
-  // Classify each message into a type (IN, OUT, TEAM, CONVERSATION)
-  // Important: We need to use messagesWithBatches here to have access to batch information
-  const messagesWithClassification = messagesWithBatches.map((message) => {
-    // Default classification is CONVERSATION
-    let classification: MessageCommand = MessageCommand.CONVERSATION;
-
-    // Check if the message content matches any known pattern
+  // Step: Classify messages by type (IN, OUT, TEAM, CONVERSATION)
+  processedMessages.forEach((message) => {
+    // Get key data for classification
     const content = message.content.toLowerCase();
-    const hasBatch =
-      (message as any).batch !== null && (message as any).batch !== undefined;
+    const hasBatch = message.batch !== null && message.batch !== undefined;
 
-    // 1. Check for conversation patterns first
-    const isConversation = MESSAGE_PATTERNS.CONVERSATION_PATTERNS.some(
-      (pattern: RegExp) => pattern.test(content)
-    );
+    // Apply classification rules in priority order
+    // 1. Check for conversation patterns first (but not if it has a batch assigned)
+    const isConversation = MESSAGE_PATTERNS.CONVERSATION_PATTERNS.some((pattern) => pattern.test(content));
     if (isConversation && !hasBatch) {
-      // Don't mark as conversation if it has a batch assigned
-      classification = MessageCommand.CONVERSATION;
+      message.modifier = MessageCommand.CONVERSATION;
     }
+
     // 2. Check for IN command
     else if (MESSAGE_PATTERNS.IN_COMMAND.test(content)) {
-      classification = MessageCommand.IN;
+      message.modifier = MessageCommand.IN;
     }
+
     // 3. Check for OUT command
     else if (MESSAGE_PATTERNS.OUT_COMMAND.test(content)) {
-      classification = MessageCommand.OUT;
+      message.modifier = MessageCommand.OUT;
     }
+
     // 4. Check for TEAM_UP command
     else if (MESSAGE_PATTERNS.TEAM_UP.test(content)) {
-      classification = MessageCommand.TEAM;
+      message.modifier = MessageCommand.TEAM;
     }
-    // 5. Check for team messages with time slots (special case: "Name1 and Name2 in [time]")
-    // The pattern to detect: contains "and" or "/" + contains time pattern
-    else if (
-      (content.includes(" and ") || content.includes("/")) &&
-      /\b\d{1,2}[h:.]\d{0,2}\b/i.test(content)
-    ) {
-      classification = MessageCommand.IN;
-    }
-    // 6. If the message has a batch assigned but hasn't been classified yet, mark it as IN
-    // This helps with messages that mention times or have batch keywords but don't match other patterns
-    else if (hasBatch) {
-      classification = MessageCommand.IN;
-    }
-    // 7. Default to CONVERSATION if no other pattern matches
 
-    return {
-      ...message,
-      modifier: classification,
-      // Keep existing batch property from messagesWithBatches
-    };
+    // 5. If message has a batch, mark it as IN (unless already classified)
+    else if (hasBatch) {
+      message.modifier = MessageCommand.IN;
+    }
+    // (Default is already CONVERSATION from initialization)
   });
 
   // Step: Create a comprehensive result object
@@ -304,19 +227,19 @@ export function parseTest(
       : null,
 
     // Messages with parsed information
-    messages: messagesWithClassification,
+    messages: processedMessages,
     // Classify messages by batch for easy access
     messagesByBatch: Object.fromEntries(
       [
         ...new Set(
-          messagesWithClassification.map(
-            (msg) => (msg as any).batch || "unassigned"
+          processedMessages.map(
+            (msg: EnhancedWhatsAppMessage) => msg.batch || "unassigned"
           )
         ),
-      ].map((batchName) => [
+      ].map((batchName: string) => [
         batchName,
-        messagesWithClassification.filter(
-          (msg) => ((msg as any).batch || "unassigned") === batchName
+        processedMessages.filter(
+          (msg: EnhancedWhatsAppMessage) => (msg.batch || "unassigned") === batchName
         ),
       ])
     ),
