@@ -12,6 +12,7 @@ export interface WhatsAppMessage {
   id?: string;
   chat_id?: string;
   sender: string;
+  sender_name?: string; // Name of the sender from contacts
   timestamp: number;
   timestamp_fmt?: string; // Human-readable formatted timestamp (YYYY-MM-DD HH:MM:SS)
   content: string;

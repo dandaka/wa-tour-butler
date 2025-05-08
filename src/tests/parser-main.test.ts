@@ -237,6 +237,58 @@ describe("Parser Main", () => {
     console.log(`System message filtering test successful: All ${fullResult.allMessages.length} remaining messages are not system messages`);
   });
   
+  // Test sender name enrichment
+  test('should add sender names to messages from contacts', () => {
+    // Call the full parser
+    const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
+    
+    // Check if the result is a success object with the right structure
+    expect(result).toBeDefined();
+    expect('groupInfo' in result).toBe(true);
+    
+    // Since we've confirmed the result has the right structure, we can type cast it safely
+    const fullResult = result as ParseTestResult;
+    
+    // Verify that all messages have the sender_name property
+    fullResult.allMessages.forEach(message => {
+      expect(message).toHaveProperty('sender_name');
+      expect(typeof message.sender_name).toBe('string');
+    });
+    
+    // Verify that all messages have a sender_name that is either a contact name or the original sender ID
+    fullResult.allMessages.forEach(message => {
+      expect(message).toHaveProperty('sender_name');
+      const senderName = message.sender_name as string;
+      expect(senderName.length).toBeGreaterThan(0);
+    });
+    
+    // Rather than testing specific name matches (which might change in the test data),
+    // let's verify that some messages have names that differ from their phone numbers
+    // as evidence that the contact mapping is working
+    const messagesWithRealNames = fullResult.allMessages.filter(message => {
+      const senderNumber = message.sender.split('@')[0];
+      const senderName = message.sender_name as string;
+      return senderName !== senderNumber && senderName !== message.sender;
+    });
+    
+    // We should have at least 5 messages with real names from contacts
+    expect(messagesWithRealNames.length).toBeGreaterThanOrEqual(5);
+    
+    // Log a few examples of mapped names
+    console.log('Examples of sender name mapping:');
+    messagesWithRealNames.slice(0, 5).forEach(message => {
+      console.log(`${message.sender} → ${message.sender_name as string}`);
+    });
+    
+    // Count how many messages have names different from their phone numbers (actual contact matches)
+    const messagesWithNames = fullResult.allMessages.filter(msg => {
+      const senderName = msg.sender_name as string;
+      return senderName !== msg.sender.split('@')[0] && senderName !== msg.sender;
+    });
+    
+    console.log(`Sender name test successful: ${messagesWithNames.length} messages have real contact names`);
+  });
+  
   // Test timestamp formatting
   test('should add formatted timestamps to all messages', () => {
     // Call the full parser

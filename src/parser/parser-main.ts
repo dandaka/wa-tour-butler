@@ -4,6 +4,7 @@
  */
 
 import * as fs from "fs";
+import * as path from "path";
 
 // Import types from the types directory
 import { WhatsAppMessage } from "../types/messages";
@@ -125,6 +126,61 @@ export function parseTest(
     };
   });
 
+  // Step: Add sender name to messages from contacts.json
+  // Each message should have "sender_name"
+  // Extract directory path and use it to find contacts.json in the same directory
+  const directory = path.dirname(messagesFilePath);
+  const contactsFilePath = path.join(directory, 'contacts.json');
+  console.log(`Loading contacts from: ${contactsFilePath}`);
+  
+  // Handle missing contacts file gracefully
+  const contactsObj: Record<string, string> = {};
+  try {
+    const contactsRaw = fs.readFileSync(contactsFilePath, 'utf8');
+    const parsedContacts = JSON.parse(contactsRaw) as Record<string, string>;
+    
+    // Copy contacts to our object
+    Object.keys(parsedContacts).forEach(key => {
+      contactsObj[key] = parsedContacts[key];
+    });
+    
+    console.log(`Loaded ${Object.keys(contactsObj).length} contacts from ${contactsFilePath}`);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(`Could not load contacts file: ${errorMessage}. Using empty contacts map.`);
+  }
+  
+  // Enrich messages with sender names
+  const messagesWithSenderNames = messagesWithFormattedTime.map(message => {
+    // Extract the phone number from the sender field (remove @s.whatsapp.net if present)
+    const phoneNumber = message.sender.split('@')[0];
+    
+    // Look up the contact name directly from the contacts object
+    // If it exists, use it; otherwise use the phone number as the name
+    const contactName = contactsObj[phoneNumber] || phoneNumber;
+    
+    return {
+      ...message,
+      sender_name: contactName
+    };
+  });
+  
+  // Log some examples of the contact mapping
+  const examples = messagesWithSenderNames
+    .filter(msg => msg.sender_name !== msg.sender.split('@')[0])
+    .slice(0, 5);
+  
+  if (examples.length > 0) {
+    console.log('Examples of sender name mapping (phone number → contact name):');
+    examples.forEach(msg => {
+      console.log(`${msg.sender.split('@')[0]} → ${msg.sender_name}`);
+    });
+  } else {
+    console.log('No contact matches found in sample messages');
+  }
+  
+  // We've already logged examples above, so nothing more needed here
+
   // Step: Create a comprehensive result object
   const fullResult = {
     // Include group info
@@ -141,8 +197,8 @@ export function parseTest(
       ? registrationEnd.timestamp
       : null,
 
-    // Include all cleaned messages with formatted timestamps
-    allMessages: messagesWithFormattedTime,
+    // Include all messages with formatted timestamps and sender names
+    allMessages: messagesWithSenderNames,
 
     // Include the parsing results
     parsingResult: {

@@ -7,7 +7,7 @@
 - [x] Add readable timestamp format
 - [x] Remove system messages
 - [ ] Select only messages between registration opened and closed
-- [ ] Add sender name to messages
+- [x] Add sender name to messages
 - [ ] Find batch keywords
 - [ ] Find team separator keywords
 - [ ] Find player names
