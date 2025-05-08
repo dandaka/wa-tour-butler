@@ -652,6 +652,7 @@ describe("Parser Main", () => {
     expect(outTeamMessage?.modifier).toBe("out");
     expect(outTeamMessage?.batch).toBe("15");
     expect(outTeamMessage?.isTeam).toBe(true);
+    expect(outTeamMessage?.players).toEqual(["Nikita", "Nikita's partner"]);
   });
 
   test("should correctly integrate registration end detection", () => {
