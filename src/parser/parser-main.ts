@@ -8,7 +8,7 @@ import path from "path";
 import { WhatsAppMessage, EnhancedWhatsAppMessage } from "../types/messages";
 import { MessageCommand } from "../types/message-parsing";
 import { GroupInfo } from "../types/group-info";
-import { MESSAGE_PATTERNS } from "../constants";
+import { MESSAGE_PATTERNS, MAX_NAME_WORDS } from "../constants";
 import { Contact, Player, ParsedRegistration } from "../types/parser";
 
 // Import other modules
@@ -211,20 +211,97 @@ export function parseTest(
   });
 
   // Step: Parse player names
-  /* 
-  1. Take all messages with modifier IN, OUT, and TEAM
-  2. Remove all batch names from the message
-  3. Remove all command keywords from the message
-  4. Try to find 1 TEAM_DELIMITER from @constants.ts
-  5. If there is any 1 team delimiter, assign
-  - isTeam: true 
-  - players: array of player names
-  6. If there is more that 1 team delimiter, assign CONVERSATION
-  7. If there is no team, check message name. If message is <= MAX_NAME_WORDS, assign as name
-  8. If there is phone number, check sender name and use it as name (if defined)
-  9. If player says "Name + Partner" (check PARTNER_PATTERN), replace "partner" name with "Name's Partner"
-  
-  */
+  processedMessages.forEach(message => {
+    // Only process messages with IN, OUT, or TEAM modifiers
+    if (
+      message.modifier === MessageCommand.IN ||
+      message.modifier === MessageCommand.OUT ||
+      message.modifier === MessageCommand.TEAM
+    ) {
+      // Initialize player info
+      let content = message.content.trim();
+      let isTeam = false;
+      let players: string[] = [];
+      
+      // 1. Remove batch names from message
+      if (message.batch) {
+        const batchNames = groupInfo.Batches?.map((b: any) => b.name) || [];
+        const batchKeywords = groupInfo.Batches?.flatMap((b: any) => b.keywords || []) || [];
+        
+        // Remove batch names and keywords
+        [...batchNames, ...batchKeywords].forEach(keyword => {
+          content = content.replace(new RegExp(`\\b${keyword}\\b`, 'i'), '');
+        });
+      }
+      
+      // 2. Remove command keywords
+      content = content
+        .replace(MESSAGE_PATTERNS.IN_COMMAND, '')
+        .replace(MESSAGE_PATTERNS.OUT_COMMAND, '')
+        .replace(MESSAGE_PATTERNS.TEAM_UP, '');
+      
+      // 3. Try to find team delimiters
+      const teamDelimiterMatches = content.match(new RegExp(MESSAGE_PATTERNS.TEAM_DELIMITER, 'g'));
+      const delimiterCount = teamDelimiterMatches ? teamDelimiterMatches.length : 0;
+      
+      // Team detection logic
+      if (delimiterCount === 1) {
+        // Mark as team and split players
+        isTeam = true;
+        
+        // Important: If the message contains "in" and has a batch assignment,
+        // preserve the IN modifier for registration purposes,
+        // but still detect the team information
+        if (!(message.modifier === MessageCommand.IN && message.batch)) {
+          message.modifier = MessageCommand.TEAM;
+        }
+        
+        // Split by team delimiter to get player names
+        players = content.split(MESSAGE_PATTERNS.TEAM_DELIMITER)
+          .map(name => name.trim())
+          .filter(name => name.length > 0);
+      } 
+      else if (delimiterCount > 1) {
+        // More than one delimiter - message might be too complex
+        message.modifier = MessageCommand.CONVERSATION;
+      }
+      else {
+        // No team delimiter - treat as single player
+        content = content.trim();
+        
+        // Check if it's a reasonable name length (not too long)
+        const wordCount = content.split(/\s+/).length;
+        if (wordCount <= MAX_NAME_WORDS && content.length > 0) {
+          players = [content];
+        }
+        else if (message.sender_name && message.sender_name !== message.sender.split('@')[0]) {
+          // If no explicit name in message, use sender_name if it's not just the phone number
+          players = [message.sender_name];
+        }
+      }
+      
+      // 5. Handle partner pattern
+      if (players.length === 1 && MESSAGE_PATTERNS.PARTNER_PATTERN.test(players[0])) {
+        // If player says "Name and partner", use "Name's Partner"
+        const playerName = players[0].replace(MESSAGE_PATTERNS.PARTNER_PATTERN, '').trim();
+        
+        if (playerName) {
+          isTeam = true;
+          
+          // Only change the modifier if it's not an IN message with batch assignment
+          if (!(message.modifier === MessageCommand.IN && message.batch)) {
+            message.modifier = MessageCommand.TEAM;
+          }
+          
+          players = [playerName, `${playerName}'s Partner`];
+        }
+      }
+      
+      // Add players and team status to the message
+      (message as any).players = players;
+      (message as any).isTeam = isTeam;
+    }
+  });
 
   // Step: Create a comprehensive result object
   const fullResult = {
