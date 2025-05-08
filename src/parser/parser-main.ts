@@ -188,7 +188,7 @@ export function parseTest(
   type ClassifiedMessage = WhatsAppMessage & { modifier: MessageCommand, batch?: string | null };
   
   // 2 & 3. For each message, check if it contains any batch keywords
-  const messagesWithBatches = messagesWithClassification.map((message: ClassifiedMessage) => {
+  const messagesWithBatches = messagesWithSenderNames.map((message) => {
     // If we don't have batches defined, return message as is
     if (batches.length === 0) {
       return message;
@@ -227,6 +227,7 @@ export function parseTest(
     return {
       ...message,
       batch: matchedBatch || defaultBatch,
+      modifier: MessageCommand.CONVERSATION, // Initialize modifier property for consistency
     };
   });
 
@@ -290,9 +291,9 @@ export function parseTest(
     messages: messagesWithBatches,
     // Classify messages by batch for easy access
     messagesByBatch: Object.fromEntries(
-      [...new Set(messagesWithBatches.map(msg => msg.batch || 'unassigned'))].map(batchName => [
+      [...new Set(messagesWithBatches.map(msg => (msg as any).batch || 'unassigned'))].map(batchName => [
         batchName,
-        messagesWithBatches.filter(msg => (msg.batch || 'unassigned') === batchName)
+        messagesWithBatches.filter(msg => ((msg as any).batch || 'unassigned') === batchName)
       ])
     ),
 
@@ -303,6 +304,21 @@ export function parseTest(
     },
   };
 
+  // Write the results to result.json
+  const resultPath = path.join(process.cwd(), 'data', 'test-data', 'result.json');
+  fs.writeFileSync(resultPath, JSON.stringify(fullResult, null, 2));
+  console.log(`Results written to ${resultPath}`);
+
   // Step 6: Return the full result
   return fullResult;
+}
+
+// If this file is run directly, execute the parser with default parameters
+if (require.main === module) {
+  console.log('Running parser-main directly...');
+  parseTest(
+    path.join(process.cwd(), 'data', 'test-data', '120363028202164779-messages.json'),
+    path.join(process.cwd(), 'groups.json'),
+    '120363028202164779@g.us'
+  );
 }
