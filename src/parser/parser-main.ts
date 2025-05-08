@@ -210,6 +210,22 @@ export function parseTest(
     // (Default is already CONVERSATION from initialization)
   });
 
+  // Step: Parse player names
+  /* 
+  1. Take all messages with modifier IN, OUT, and TEAM
+  2. Remove all batch names from the message
+  3. Remove all command keywords from the message
+  4. Try to find 1 TEAM_DELIMITER from @constants.ts
+  5. If there is any 1 team delimiter, assign
+  - isTeam: true 
+  - players: array of player names
+  6. If there is more that 1 team delimiter, assign CONVERSATION
+  7. If there is no team, check message name. If message is <= MAX_NAME_WORDS, assign as name
+  8. If there is phone number, check sender name and use it as name (if defined)
+  9. If player says "Name + Partner" (check PARTNER_PATTERN), replace "partner" name with "Name's Partner"
+  
+  */
+
   // Step: Create a comprehensive result object
   const fullResult = {
     // Include group info
