@@ -14,5 +14,6 @@
 - [x] Find player names
 - [x] Find messages with teams
 - [x] Find team up keywords
+- [ ] Assign team numbers to players
 - [ ] Make a list of players in batches
 - [ ] Select only messages between registration opened and closed

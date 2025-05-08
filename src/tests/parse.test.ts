@@ -4,7 +4,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { parseTest, loadMessages } from "../parser/parser-main";
+import { parseTest, loadMessages } from "../parser/parse";
 import { detectRegistrationStart } from "../parser/registration-start-detect";
 import { calculateRegistrationEndTime } from "../parser/registration-end-detect";
 import { WhatsAppMessage } from "../types/messages";

@@ -14,8 +14,8 @@
     "fetch-history": "ts-node src/scripts/fetch-history.ts",
     "start": "ts-node src/scripts/monitor-messages.ts",
     "view": "ts-node src/scripts/view-db-messages.ts",
-    "parse-main": "ts-node src/parser/parser-main.ts",
-    "parse-main-test": "jest src/tests/parser-main.test.ts --colors"
+    "parse": "ts-node src/parser/parse.ts",
+    "parse-test": "jest src/tests/parse.test.ts --colors"
   },
   "keywords": [
     "whatsapp",
