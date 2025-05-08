@@ -9,11 +9,11 @@
 - [ ] Select only messages between registration opened and closed
 - [x] Add sender name to messages
 - [x] Find batch keywords
-- [ ] Classify message: IN, OUT, TEAM, REGISTRATION_OPEN, SYSTEM, CONVERSATION
-- [ ] Find in/out registration keywords
-- [ ] Find team separator keywords
-- [ ] Find player names
-- [ ] Find messages with teams
-- [ ] Find team up keywords
+- [x] Classify message: IN, OUT, TEAM, REGISTRATION_OPEN, SYSTEM, CONVERSATION
+- [x] Find in/out registration keywords
+- [x] Find team separator keywords
+- [x] Find player names
+- [x] Find messages with teams
+- [x] Find team up keywords
 - [ ] Make a list of players in batches
 
