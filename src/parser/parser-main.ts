@@ -97,9 +97,18 @@ export function parseTest(
       content,
     }));
 
+  // Step: Remove system messages that only have content within square brackets
+  const systemMessagePattern = /^\s*\[[^\]]+\]\s*$/;
+  const filteredMessages = cleanedMessages.filter(message => !systemMessagePattern.test(message.content));
+  
+  // Step: Filter out messages that are too short or just numbers (additional system message filtering)
+  const nonSystemMessages = filteredMessages.filter(message => {
+    return !(message.content.match(/^(\d+)$/) !== null || message.content.length < 3);
+  });
+
   // Step: Convert timestamps to readable format
   // add timestamp_fmt to allMessages with YYYY-MM-DD HH:MM:SS format
-  const messagesWithFormattedTime = cleanedMessages.map((message) => {
+  const messagesWithFormattedTime = filteredMessages.map((message) => {
     // Create a new Date object from the Unix timestamp (seconds to milliseconds)
     const date = new Date(message.timestamp * 1000);
 

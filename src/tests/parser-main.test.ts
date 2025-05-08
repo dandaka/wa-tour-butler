@@ -215,6 +215,28 @@ describe("Parser Main", () => {
     console.log(`FromMe property test successful: Verified ${fullResult.allMessages.length} messages`);
   });
   
+  // Test system message filtering
+  test('should remove system messages with content that only has [TEXT_IN_BRACKETS]', () => {
+    // Call the full parser
+    const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
+    
+    // Check if the result is a success object with the right structure
+    expect(result).toBeDefined();
+    expect('groupInfo' in result).toBe(true);
+    
+    // Since we've confirmed the result has the right structure, we can type cast it safely
+    const fullResult = result as ParseTestResult;
+    
+    // Verify that none of the messages have content that only consists of text in square brackets
+    const systemMessagePattern = /^\s*\[[^\]]+\]\s*$/;
+    
+    fullResult.allMessages.forEach(message => {
+      expect(systemMessagePattern.test(message.content)).toBe(false);
+    });
+    
+    console.log(`System message filtering test successful: All ${fullResult.allMessages.length} remaining messages are not system messages`);
+  });
+  
   // Test timestamp formatting
   test('should add formatted timestamps to all messages', () => {
     // Call the full parser
