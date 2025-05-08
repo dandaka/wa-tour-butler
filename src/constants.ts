@@ -73,7 +73,7 @@ export const MESSAGE_PATTERNS = {
   BRACKET_CONTENT: /\[.*?\]/g,
 
   // Partner detection patterns
-  PARTNER_PATTERNS: [
+  ANON_PARTNER_PATTERNS: [
     /(?:^|\s)(?:with\s+)?partner(?:\s|$)/i,
     /(?:\+|\s+\+\s+)partner/i
   ],

@@ -300,7 +300,7 @@ export function parseTest(
       
       // 5. Handle partner pattern
       // Check if any partner pattern matches
-      const hasPartnerPattern = players.length === 1 && MESSAGE_PATTERNS.PARTNER_PATTERNS.some(pattern => pattern.test(players[0]));
+      const hasPartnerPattern = players.length === 1 && MESSAGE_PATTERNS.ANON_PARTNER_PATTERNS.some(pattern => pattern.test(players[0]));
       
       if (hasPartnerPattern) {
         // It's a message with 'partner' in it
@@ -308,7 +308,7 @@ export function parseTest(
         let playerName = players[0];
         
         // Remove all partner patterns from the player name
-        MESSAGE_PATTERNS.PARTNER_PATTERNS.forEach(pattern => {
+        MESSAGE_PATTERNS.ANON_PARTNER_PATTERNS.forEach(pattern => {
           playerName = playerName.replace(pattern, '');
         });
         
