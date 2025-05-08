@@ -34,6 +34,7 @@ export const MESSAGE_PATTERNS = {
   TEAM_DELIMITERS: [
     /\s+e\s+/i,
     /\s+and\s+/i,
+    /\s+with\s+/i,
     /\s+com\s+/i,
     /\s+\+\s+/i,
     /\s+\/\s+/i,

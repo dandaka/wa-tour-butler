@@ -245,6 +245,9 @@ export function parseTest(
       MESSAGE_PATTERNS.TEAM_UP_PATTERNS.forEach(pattern => {
         content = content.replace(pattern, '');
       });
+
+      // Store in each message resulting message_stripped parameter so I can debug
+      (message as any).message_stripped = content.trim();
       
       // 3. Try to find team delimiters
       // Count how many delimiter patterns match in the content
