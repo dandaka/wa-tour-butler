@@ -255,7 +255,14 @@ export function parseTest(
         .replace(MESSAGE_PATTERNS.IN_COMMAND, " ")
         .replace(MESSAGE_PATTERNS.OUT_COMMAND, " ");
 
-      // 3. Check for anonymous partner patterns
+      // 3. For DELIMITERS_REQUIRE_SPACES, if any of these delimiters found,
+      // add space before and after, then remove double spaces
+      for (const delimiter of MESSAGE_PATTERNS.DELIMITERS_REQUIRE_SPACES) {
+        content = content.replace(delimiter, " $& ");
+      }
+      content = content.replace(/\s{2,}/g, " ").trim();
+
+      // 4. Check for anonymous partner patterns
       let hasAnonPartner = false;
       // Sort patterns by length (longest first) to avoid partial replacements
       const sortedAnonPartnerPatterns = [
@@ -266,13 +273,17 @@ export function parseTest(
       for (const pattern of sortedAnonPartnerPatterns) {
         if (pattern.test(content)) {
           hasAnonPartner = true;
-          content = content.replace(pattern, "");
         }
       }
-      
+
       // Only include hasAnonPartner in the output if it's true (to avoid clutter in the JSON)
       if (hasAnonPartner) {
         (message as any).hasAnonPartner = true;
+      }
+
+      // Replace any TEAM_DELIMITER with "AND"
+      for (const delimiter of MESSAGE_PATTERNS.TEAM_DELIMITERS) {
+        content = content.replace(delimiter, " AND ");
       }
 
       // Store in each message resulting message_stripped parameter so I can debug

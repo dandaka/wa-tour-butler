@@ -41,6 +41,12 @@ export const MESSAGE_PATTERNS = {
     /\s+\&\s+/i,
   ],
 
+  DELIMITERS_REQUIRE_SPACES: [
+    /\+/i,
+    /\//i,
+    /\&/i,
+  ],
+
   // Team formation patterns
   TEAM_UP_PATTERNS: [
     /team\s*up/i,
