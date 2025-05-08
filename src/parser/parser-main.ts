@@ -179,56 +179,6 @@ export function parseTest(
     };
   });
 
-  // Step: Classify messages
-  console.log('Classifying messages based on their content...');
-  
-  // Classify each message into a type (IN, OUT, TEAM, CONVERSATION)
-  const messagesWithClassification = messagesWithSenderNames.map(message => {
-    // Default classification is CONVERSATION
-    let classification: MessageCommand = MessageCommand.CONVERSATION;
-    
-    // Check if the message content matches any known pattern
-    const content = message.content.toLowerCase();
-    
-    // 1. Check for conversation patterns first
-    const isConversation = MESSAGE_PATTERNS.CONVERSATION_PATTERNS.some((pattern: RegExp) => pattern.test(content));
-    if (isConversation) {
-      classification = MessageCommand.CONVERSATION;
-    }
-    // 2. Check for IN command
-    else if (MESSAGE_PATTERNS.IN_COMMAND.test(content)) {
-      classification = MessageCommand.IN;
-    }
-    // 3. Check for OUT command
-    else if (MESSAGE_PATTERNS.OUT_COMMAND.test(content)) {
-      classification = MessageCommand.OUT;
-    }
-    // 4. Check for TEAM_UP command
-    else if (MESSAGE_PATTERNS.TEAM_UP.test(content)) {
-      classification = MessageCommand.TEAM;
-    }
-    // 5. Default to CONVERSATION if no other pattern matches
-    
-    return {
-      ...message,
-      modifier: classification,
-      batch: null // Initialize batch property
-    };
-  });
-  
-  // Count messages by classification
-  const classificationCounts: Record<string, number> = {};
-  messagesWithClassification.forEach(msg => {
-    const classification = (msg as any).modifier;
-    classificationCounts[classification] = (classificationCounts[classification] || 0) + 1;
-  });
-  
-  // Log classification statistics
-  console.log('Message classification summary:');
-  Object.entries(classificationCounts).forEach(([type, count]) => {
-    console.log(`- ${type}: ${count} messages`);
-  });
-
   // Step: Parse batches
   // 1. Extract batches info from group info
   const batches = groupInfo.Batches || [];
@@ -280,17 +230,44 @@ export function parseTest(
     };
   });
 
-  // Count messages per batch
-  const batchCounts: Record<string, number> = {};
-  messagesWithBatches.forEach(msg => {
-    const batch = msg.batch || 'unassigned';
-    batchCounts[batch] = (batchCounts[batch] || 0) + 1;
-  });
 
-  // Log batch statistics
-  console.log('Batch assignment summary:');
-  Object.entries(batchCounts).forEach(([batchName, count]) => {
-    console.log(`- ${batchName}: ${count} messages`);
+  
+  // Classify each message into a type (IN, OUT, TEAM, CONVERSATION)
+  const messagesWithClassification = messagesWithSenderNames.map(message => {
+    // Default classification is CONVERSATION
+    let classification: MessageCommand = MessageCommand.CONVERSATION;
+    
+    // Check if the message content matches any known pattern
+    const content = message.content.toLowerCase();
+    
+    // 1. Check for conversation patterns first
+    const isConversation = MESSAGE_PATTERNS.CONVERSATION_PATTERNS.some((pattern: RegExp) => pattern.test(content));
+    if (isConversation) {
+      classification = MessageCommand.CONVERSATION;
+    }
+    // 2. Check for IN command
+    else if (MESSAGE_PATTERNS.IN_COMMAND.test(content)) {
+      classification = MessageCommand.IN;
+    }
+    // 3. Check for OUT command
+    else if (MESSAGE_PATTERNS.OUT_COMMAND.test(content)) {
+      classification = MessageCommand.OUT;
+    }
+    // 4. Check for TEAM_UP command
+    else if (MESSAGE_PATTERNS.TEAM_UP.test(content)) {
+      classification = MessageCommand.TEAM;
+    }
+    // 5. Check if there is batch information in the message already, add MessageCommand.IN
+
+    
+    
+    // 6. Default to CONVERSATION if no other pattern matches
+    
+    return {
+      ...message,
+      modifier: classification,
+      batch: null // Initialize batch property
+    };
   });
 
   // Step: Create a comprehensive result object
