@@ -499,6 +499,38 @@ describe("Parser Main", () => {
     });
   });
 
+  test("should have at least one message of each type (conversation, in, out)", () => {
+    // Call the full parser
+    const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId) as ParseTestResult;
+    
+    // Ensure result is valid
+    expect(result).toBeDefined();
+    expect("messages" in result).toBe(true);
+    
+    // Count messages by type
+    const messageCounts = {
+      conversation: 0,
+      in: 0,
+      out: 0,
+      team: 0
+    };
+    
+    // Tally up message counts by type
+    result.messages.forEach((message: any) => {
+      if (message.modifier && messageCounts.hasOwnProperty(message.modifier)) {
+        messageCounts[message.modifier as keyof typeof messageCounts]++;
+      }
+    });
+    
+    // Log the counts for debugging
+    console.log("Message type counts:", messageCounts);
+    
+    // Verify we have at least one of each main type
+    expect(messageCounts.conversation).toBeGreaterThan(0);
+    expect(messageCounts.in).toBeGreaterThan(0);
+    expect(messageCounts.out).toBeGreaterThan(0);
+  });
+
   test("should correctly integrate registration end detection", () => {
     // Call the full parser
     const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
