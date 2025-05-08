@@ -253,14 +253,18 @@ export function parseTest(
 // If this file is run directly, execute the parser with default parameters
 if (require.main === module) {
   console.log("Running parser-main directly...");
+  // Use the same paths and files as the test to ensure consistent results
+  const testDataDir = path.join(process.cwd(), "data", "test-data");
+  const messagesFilePath = path.join(
+    testDataDir,
+    "120363028202164779-messages.json"
+  );
+  const groupsFilePath = path.join(testDataDir, "groups-test.json");
+  const targetGroupId = "120363028202164779@g.us";
+  
   parseTest(
-    path.join(
-      process.cwd(),
-      "data",
-      "test-data",
-      "120363028202164779-messages.json"
-    ),
-    path.join(process.cwd(), "groups.json"),
-    "120363028202164779@g.us"
+    messagesFilePath,
+    groupsFilePath,
+    targetGroupId
   );
 }
