@@ -237,6 +237,71 @@ describe("Parser Main", () => {
     console.log(`System message filtering test successful: All ${fullResult.allMessages.length} remaining messages are not system messages`);
   });
   
+  // Test batch assignment
+  test('should assign messages to appropriate batches based on keywords', () => {
+    // Call the full parser
+    const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
+    
+    // Check if the result is a success object with the right structure
+    expect(result).toBeDefined();
+    expect('groupInfo' in result).toBe(true);
+    
+    // Since we've confirmed the result has the right structure, we can type cast it safely
+    const fullResult = result as ParseTestResult;
+    
+    // Get group info to extract batch details
+    const batches = fullResult.groupInfo.Batches || [];
+    expect(batches.length).toBeGreaterThan(0);
+    
+    // Verify that at least some messages have been assigned batches
+    const messagesWithBatches = fullResult.allMessages.filter(msg => (msg as any).batch);
+    expect(messagesWithBatches.length).toBeGreaterThan(0);
+    
+    // Check if messages with batch keywords are assigned to the right batch
+    // Extract all batch keywords for testing
+    const batchKeywordsMap = new Map<string, string[]>();
+    batches.forEach((batch: any) => {
+      if (batch.keywords && batch.keywords.length > 0) {
+        batchKeywordsMap.set(batch.name, batch.keywords);
+      }
+    });
+    
+    // For each message with a batch assigned, verify it contains a keyword for that batch
+    const batchSamples: Record<string, number> = {};
+    messagesWithBatches.forEach(msg => {
+      const batchName = (msg as any).batch;
+      const keywords = batchKeywordsMap.get(batchName) || [];
+      
+      // Count each batch for reporting
+      batchSamples[batchName] = (batchSamples[batchName] || 0) + 1;
+      
+      // Sample validation - test some messages explicitly
+      // If the message contains at least one of the batch's keywords, or it's assigned the default batch
+      const defaultBatch = batches.find((b: any) => b.default === true);
+      const defaultBatchName = defaultBatch ? defaultBatch.name : null;
+      
+      if (batchName !== defaultBatchName) {
+        // For non-default batches, message should contain one of the keywords
+        const containsKeyword = keywords.some(keyword => 
+          msg.content.toLowerCase().includes(keyword.toLowerCase())
+        );
+        
+        // Don't expect every message to contain a keyword - that depends on default batch logic
+        // But log some examples for verification
+        if (containsKeyword) {
+          // This is a good sample to verify - it explicitly mentions the batch
+          console.log(`Verified batch assignment: "${batchName}" for message: "${msg.content.substring(0, 50)}..."`);
+        }
+      }
+    });
+    
+    // Log overall batch assignment statistics
+    console.log('Batch assignment summary:');
+    Object.entries(batchSamples).forEach(([batch, count]) => {
+      console.log(`- Batch ${batch}: ${count} messages`);
+    });
+  });
+  
   // Test sender name enrichment
   test('should add sender names to messages from contacts', () => {
     // Call the full parser

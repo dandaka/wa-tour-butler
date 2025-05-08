@@ -8,8 +8,12 @@
 - [x] Remove system messages
 - [ ] Select only messages between registration opened and closed
 - [x] Add sender name to messages
-- [ ] Find batch keywords
+- [x] Find batch keywords
+- [ ] Classify message: IN, OUT, TEAM, REGISTRATION_OPEN, SYSTEM, CONVERSATION
+- [ ] Find in/out registration keywords
 - [ ] Find team separator keywords
 - [ ] Find player names
 - [ ] Find messages with teams
+- [ ] Find team up keywords
+- [ ] Make a list of players in batches
 

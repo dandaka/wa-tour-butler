@@ -100,11 +100,15 @@ export function parseTest(
 
   // Step: Remove system messages that only have content within square brackets
   const systemMessagePattern = /^\s*\[[^\]]+\]\s*$/;
-  const filteredMessages = cleanedMessages.filter(message => !systemMessagePattern.test(message.content));
-  
+  const filteredMessages = cleanedMessages.filter(
+    (message) => !systemMessagePattern.test(message.content)
+  );
+
   // Step: Filter out messages that are too short or just numbers (additional system message filtering)
-  const nonSystemMessages = filteredMessages.filter(message => {
-    return !(message.content.match(/^(\d+)$/) !== null || message.content.length < 3);
+  const nonSystemMessages = filteredMessages.filter((message) => {
+    return !(
+      message.content.match(/^(\d+)$/) !== null || message.content.length < 3
+    );
   });
 
   // Step: Convert timestamps to readable format
@@ -130,38 +134,90 @@ export function parseTest(
   // Each message should have "sender_name"
   // Extract directory path and use it to find contacts.json in the same directory
   const directory = path.dirname(messagesFilePath);
-  const contactsFilePath = path.join(directory, 'contacts.json');
+  const contactsFilePath = path.join(directory, "contacts.json");
   console.log(`Loading contacts from: ${contactsFilePath}`);
-  
+
   // Handle missing contacts file gracefully
   const contactsObj: Record<string, string> = {};
   try {
-    const contactsRaw = fs.readFileSync(contactsFilePath, 'utf8');
+    const contactsRaw = fs.readFileSync(contactsFilePath, "utf8");
     const parsedContacts = JSON.parse(contactsRaw) as Record<string, string>;
-    
+
     // Copy contacts to our object
-    Object.keys(parsedContacts).forEach(key => {
+    Object.keys(parsedContacts).forEach((key) => {
       contactsObj[key] = parsedContacts[key];
     });
-    
-    console.log(`Loaded ${Object.keys(contactsObj).length} contacts from ${contactsFilePath}`);
+
+    console.log(
+      `Loaded ${
+        Object.keys(contactsObj).length
+      } contacts from ${contactsFilePath}`
+    );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.warn(`Could not load contacts file: ${errorMessage}. Using empty contacts map.`);
+    console.warn(
+      `Could not load contacts file: ${errorMessage}. Using empty contacts map.`
+    );
   }
-  
+
   // Enrich messages with sender names
-  const messagesWithSenderNames = messagesWithFormattedTime.map(message => {
+  const messagesWithSenderNames = messagesWithFormattedTime.map((message) => {
     // Extract the phone number from the sender field (remove @s.whatsapp.net if present)
-    const phoneNumber = message.sender.split('@')[0];
-    
+    const phoneNumber = message.sender.split("@")[0];
+
     // Look up the contact name directly from the contacts object
     // If it exists, use it; otherwise use the phone number as the name
     const contactName = contactsObj[phoneNumber] || phoneNumber;
-    
+
     return {
       ...message,
-      sender_name: contactName
+      sender_name: contactName,
+    };
+  });
+
+  // Step: Parse batches
+  // 1. Extract batches info from group info
+  const batches = groupInfo.Batches || [];
+  console.log(`Found ${batches.length} batches in group info`);
+
+  // 2 & 3. For each message, check if it contains any batch keywords
+  const messagesWithBatches = messagesWithSenderNames.map((message) => {
+    // If we don't have batches defined, return message as is
+    if (batches.length === 0) {
+      return message;
+    }
+
+    // Check message content against each batch's keywords
+    let matchedBatch = null;
+
+    // First, try to find an exact match
+    for (const batch of batches) {
+      const keywords = batch.keywords || [];
+
+      // Check if message content contains any of the keywords
+      for (const keyword of keywords) {
+        // Create regex pattern for the keyword with word boundaries
+        const pattern = new RegExp(
+          `\\b${keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`,
+          "i"
+        );
+
+        if (pattern.test(message.content)) {
+          matchedBatch = batch.name;
+          break;
+        }
+      }
+
+      // If we found a match, no need to check other batches
+      if (matchedBatch) {
+        break;
+      }
+    }
+
+    // Add batch information to the message
+    return {
+      ...message,
+      batch: matchedBatch,
     };
   });
 
@@ -181,8 +237,8 @@ export function parseTest(
       ? registrationEnd.timestamp
       : null,
 
-    // Include all messages with formatted timestamps and sender names
-    allMessages: messagesWithSenderNames,
+    // Include all messages with formatted timestamps, sender names, and batch assignments
+    allMessages: messagesWithBatches,
 
     // Include the parsing results
     parsingResult: {
