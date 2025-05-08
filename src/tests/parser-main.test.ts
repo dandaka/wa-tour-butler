@@ -389,6 +389,50 @@ describe("Parser Main", () => {
   });
   
   // Test the complete integration of registration end detection
+  test('should correctly parse team messages with "in" and time slot', () => {
+    // Instead of mocking fs functions (which are read-only), we'll use direct data
+    // Get some test messages from the existing data
+    const allMessages = loadMessages(messagesFilePath);
+    
+    // Find a message that matches our test case - "Miguel and Duarte in 17h"
+    // If it doesn't exist in the test data, we'll just verify other team + in messages
+    const teamMessages = allMessages.filter(msg => 
+      msg.content.toLowerCase().includes(' in ') && 
+      (msg.content.toLowerCase().includes(' and ') || msg.content.includes('/')));
+    
+    // Process the messages with our parser
+    const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId) as ParseTestResult;
+    
+    // Ensure result is valid (not a failure response)
+    expect(result).not.toHaveProperty('success', false);
+    
+    // Find messages with "and" + "in" + time patterns
+    const teamInWithTimeMsg = result.messages.filter((msg: any) => {
+      return msg.content.toLowerCase().includes(' and ') && 
+             msg.content.toLowerCase().includes(' in ') &&
+             (/\b\d{1,2}[h:.]\d{0,2}\b/i.test(msg.content));
+    });
+    
+    // Specific case: "Miguel and Duarte in 17h"
+    const miguelDuarteMsg = result.messages.find((msg: any) => 
+      msg.content.includes("Miguel and Duarte in 17h"));
+    
+    if (miguelDuarteMsg) {
+      // Verify it was correctly parsed
+      expect(miguelDuarteMsg.batch).toBe("17"); // Should have batch 17
+      expect(miguelDuarteMsg.modifier).toBe("in"); // Should be classified as IN message
+    }
+    
+    // General case: Team messages with time slots should be correctly classified
+    teamInWithTimeMsg.forEach((msg: any) => {
+      // These messages should be classified as IN
+      expect(msg.modifier).toBe("in");
+      
+      // They should have a batch assigned based on time pattern
+      expect(msg.batch).not.toBeNull();
+    });
+  });
+  
   test('should correctly integrate registration end detection', () => {
     // Call the full parser
     const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
