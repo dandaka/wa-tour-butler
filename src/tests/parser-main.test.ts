@@ -500,35 +500,90 @@ describe("Parser Main", () => {
   });
 
   test("should have at least one message of each type (conversation, in, out)", () => {
-    // Call the full parser
-    const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId) as ParseTestResult;
-    
-    // Ensure result is valid
-    expect(result).toBeDefined();
-    expect("messages" in result).toBe(true);
-    
-    // Count messages by type
+    // Load the data from result.json
+    const resultPath = path.join(
+      process.cwd(),
+      "data",
+      "test-data",
+      "result.json"
+    );
+    const result = JSON.parse(fs.readFileSync(resultPath, "utf8"));
+
+    // Count different message types
     const messageCounts = {
       conversation: 0,
       in: 0,
       out: 0,
-      team: 0
+      team: 0,
+      registration_open: 0,
+      system: 0,
     };
-    
-    // Tally up message counts by type
+
     result.messages.forEach((message: any) => {
-      if (message.modifier && messageCounts.hasOwnProperty(message.modifier)) {
+      if (message.modifier) {
         messageCounts[message.modifier as keyof typeof messageCounts]++;
       }
     });
-    
-    // Log the counts for debugging
-    console.log("Message type counts:", messageCounts);
+
+    console.log("Message counts:", messageCounts);
     
     // Verify we have at least one of each main type
     expect(messageCounts.conversation).toBeGreaterThan(0);
     expect(messageCounts.in).toBeGreaterThan(0);
     expect(messageCounts.out).toBeGreaterThan(0);
+  });
+  
+  test("should correctly assign batch 15 to messages with '15h' time slot", () => {
+    // Load the data from result.json
+    const resultPath = path.join(
+      process.cwd(),
+      "data",
+      "test-data",
+      "result.json"
+    );
+    const result = JSON.parse(fs.readFileSync(resultPath, "utf8"));
+    
+    // Find specific messages with time slot 15h
+    const danMessage = result.messages.find(
+      (msg: any) => msg.content === "Dan 15h" && msg.sender_name === "Dan"
+    );
+    
+    const teamMessage = result.messages.find(
+      (msg: any) => msg.content === "Martin and Peter at 15h" && msg.sender_name === "André Silva"
+    );
+    
+    // These messages should be classified as "in" commands
+    expect(danMessage).toBeDefined();
+    expect(teamMessage).toBeDefined();
+    
+    // The messages should be properly classified (not as conversation)
+    expect(danMessage?.modifier).not.toBe("conversation");
+    expect(teamMessage?.modifier).not.toBe("conversation");
+    
+    // They should also have batch "15" assigned
+    expect(danMessage?.batch).toBe("15");
+    expect(teamMessage?.batch).toBe("15");
+  });
+  
+  test("should correctly detect team signups with time slots", () => {
+    // Load the data from result.json
+    const resultPath = path.join(
+      process.cwd(),
+      "data",
+      "test-data",
+      "result.json"
+    );
+    const result = JSON.parse(fs.readFileSync(resultPath, "utf8"));
+    
+    // Find the team message
+    const teamMessage = result.messages.find(
+      (msg: any) => msg.content === "Martin and Peter at 15h" && msg.sender_name === "André Silva"
+    );
+    
+    // This message should be properly classified as a team signup
+    expect(teamMessage).toBeDefined();
+    expect(teamMessage?.modifier).toBe("team");
+    expect(teamMessage?.batch).toBe("15");
   });
 
   test("should correctly integrate registration end detection", () => {

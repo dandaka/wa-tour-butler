@@ -228,21 +228,6 @@ export function parseTest(
 
     // Messages with parsed information
     messages: processedMessages,
-    // Classify messages by batch for easy access
-    messagesByBatch: Object.fromEntries(
-      [
-        ...new Set(
-          processedMessages.map(
-            (msg: EnhancedWhatsAppMessage) => msg.batch || "unassigned"
-          )
-        ),
-      ].map((batchName: string) => [
-        batchName,
-        processedMessages.filter(
-          (msg: EnhancedWhatsAppMessage) => (msg.batch || "unassigned") === batchName
-        ),
-      ])
-    ),
 
     // Include the parsing results
     parsingResult: {
