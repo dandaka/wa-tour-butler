@@ -97,6 +97,25 @@ export function parseTest(
       content,
     }));
 
+  // Step: Convert timestamps to readable format
+  // add timestamp_fmt to allMessages with YYYY-MM-DD HH:MM:SS format
+  const messagesWithFormattedTime = cleanedMessages.map((message) => {
+    // Create a new Date object from the Unix timestamp (seconds to milliseconds)
+    const date = new Date(message.timestamp * 1000);
+
+    // Format the date as YYYY-MM-DD HH:MM:SS
+    const formatted = date
+      .toISOString()
+      .replace("T", " ") // Replace T separator with space
+      .substring(0, 19); // Take only YYYY-MM-DD HH:MM:SS part
+
+    // Return the message with an added timestamp_fmt field
+    return {
+      ...message,
+      timestamp_fmt: formatted,
+    };
+  });
+
   // Step: Create a comprehensive result object
   const fullResult = {
     // Include group info
@@ -113,8 +132,8 @@ export function parseTest(
       ? registrationEnd.timestamp
       : null,
 
-    // Include all cleaned messages
-    allMessages: cleanedMessages,
+    // Include all cleaned messages with formatted timestamps
+    allMessages: messagesWithFormattedTime,
 
     // Include the parsing results
     parsingResult: {

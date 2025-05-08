@@ -13,8 +13,10 @@ export interface WhatsAppMessage {
   chat_id?: string;
   sender: string;
   timestamp: number;
+  timestamp_fmt?: string; // Human-readable formatted timestamp (YYYY-MM-DD HH:MM:SS)
   content: string;
   is_from_me?: number;
+  fromMe?: boolean;  // Added for compatibility with message formats that use this property
 }
 
 /**

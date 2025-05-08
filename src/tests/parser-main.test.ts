@@ -215,6 +215,38 @@ describe("Parser Main", () => {
     console.log(`FromMe property test successful: Verified ${fullResult.allMessages.length} messages`);
   });
   
+  // Test timestamp formatting
+  test('should add formatted timestamps to all messages', () => {
+    // Call the full parser
+    const result = parseTest(messagesFilePath, groupsFilePath, targetGroupId);
+    
+    // Check if the result is a success object with the right structure
+    expect(result).toBeDefined();
+    expect('groupInfo' in result).toBe(true);
+    
+    // Since we've confirmed the result has the right structure, we can type cast it safely
+    const fullResult = result as ParseTestResult;
+    
+    // Verify that all messages have the timestamp_fmt property with proper format
+    fullResult.allMessages.forEach(message => {
+      // Check property exists
+      expect(message).toHaveProperty('timestamp_fmt');
+      
+      // Verify the format matches YYYY-MM-DD HH:MM:SS pattern
+      const timestampFmt = message.timestamp_fmt as string;
+      expect(timestampFmt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+      
+      // Validate that the formatted time corresponds to the original timestamp
+      const originalDate = new Date(message.timestamp * 1000).toISOString().replace('T', ' ').substring(0, 19);
+      expect(timestampFmt).toBe(originalDate);
+    });
+    
+    if (fullResult.allMessages.length > 0) {
+      const sample = fullResult.allMessages[0];
+      console.log(`Timestamp formatting test successful: ${sample.timestamp} → ${sample.timestamp_fmt}`);
+    }
+  });
+  
   // Test the complete integration of registration end detection
   test('should correctly integrate registration end detection', () => {
     // Call the full parser
