@@ -61,6 +61,7 @@ export const MESSAGE_PATTERNS = {
     /please add/i,
     /can you add/i,
     /could you add/i,
+    /looking for/i,
     /can we add/i,
     /see you/i,
     /good (?:morning|afternoon|evening|night)/i,
