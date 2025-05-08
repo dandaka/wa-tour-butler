@@ -39,7 +39,6 @@ export const MESSAGE_PATTERNS = {
     /\s+\+\s+/i,
     /\s+\/\s+/i,
     /\s+\&\s+/i,
-    /\+partner/i  // Match +partner without requiring spaces
   ],
 
   // Team formation patterns
