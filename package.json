@@ -8,14 +8,14 @@
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
     "test": "jest",
-    "parse-test": "ts-node src/tests/registration-parser-test.ts && jest src/tests/message-formats.test.ts --colors --noStackTrace",
-    "parse-all": "ts-node src/scripts/process-all-groups.ts",
     "groups": "ts-node src/scripts/fetchGroupIds.ts",
     "fetch-groups": "ts-node src/scripts/fetchGroupChats.ts",
     "whatsapp-login": "ts-node src/scripts/whatsappLogin.ts",
     "fetch-history": "ts-node src/scripts/fetch-history.ts",
     "start": "ts-node src/scripts/monitor-messages.ts",
-    "view": "ts-node src/scripts/view-db-messages.ts"
+    "view": "ts-node src/scripts/view-db-messages.ts",
+    "parse-main": "ts-node src/parser/parser-main.ts",
+    "parse-main-test": "jest src/tests/parser-main.test.ts --colors"
   },
   "keywords": [
     "whatsapp",

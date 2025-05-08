@@ -185,8 +185,11 @@ export function parseTest(
   console.log(`Found ${batches.length} batches in group info`);
 
   // Define type for messages with classification
-  type ClassifiedMessage = WhatsAppMessage & { modifier: MessageCommand, batch?: string | null };
-  
+  type ClassifiedMessage = WhatsAppMessage & {
+    modifier: MessageCommand;
+    batch?: string | null;
+  };
+
   // 2 & 3. For each message, check if it contains any batch keywords
   const messagesWithBatches = messagesWithSenderNames.map((message) => {
     // If we don't have batches defined, return message as is
@@ -231,19 +234,23 @@ export function parseTest(
     };
   });
 
-
-  
   // Classify each message into a type (IN, OUT, TEAM, CONVERSATION)
-  const messagesWithClassification = messagesWithSenderNames.map(message => {
+  // Important: We need to use messagesWithBatches here to have access to batch information
+  const messagesWithClassification = messagesWithBatches.map((message) => {
     // Default classification is CONVERSATION
     let classification: MessageCommand = MessageCommand.CONVERSATION;
-    
+
     // Check if the message content matches any known pattern
     const content = message.content.toLowerCase();
-    
+    const hasBatch =
+      (message as any).batch !== null && (message as any).batch !== undefined;
+
     // 1. Check for conversation patterns first
-    const isConversation = MESSAGE_PATTERNS.CONVERSATION_PATTERNS.some((pattern: RegExp) => pattern.test(content));
-    if (isConversation) {
+    const isConversation = MESSAGE_PATTERNS.CONVERSATION_PATTERNS.some(
+      (pattern: RegExp) => pattern.test(content)
+    );
+    if (isConversation && !hasBatch) {
+      // Don't mark as conversation if it has a batch assigned
       classification = MessageCommand.CONVERSATION;
     }
     // 2. Check for IN command
@@ -258,16 +265,25 @@ export function parseTest(
     else if (MESSAGE_PATTERNS.TEAM_UP.test(content)) {
       classification = MessageCommand.TEAM;
     }
-    // 5. Check if there is batch information in the message already, add MessageCommand.IN
+    // 5. Check for team messages with time slots (special case: "Name1 and Name2 in [time]")
+    // The pattern to detect: contains "and" or "/" + contains time pattern
+    else if (
+      (content.includes(" and ") || content.includes("/")) &&
+      /\b\d{1,2}[h:.]\d{0,2}\b/i.test(content)
+    ) {
+      classification = MessageCommand.IN;
+    }
+    // 6. If the message has a batch assigned but hasn't been classified yet, mark it as IN
+    // This helps with messages that mention times or have batch keywords but don't match other patterns
+    else if (hasBatch) {
+      classification = MessageCommand.IN;
+    }
+    // 7. Default to CONVERSATION if no other pattern matches
 
-    
-    
-    // 6. Default to CONVERSATION if no other pattern matches
-    
     return {
       ...message,
       modifier: classification,
-      batch: null // Initialize batch property
+      // Keep existing batch property from messagesWithBatches
     };
   });
 
@@ -288,12 +304,20 @@ export function parseTest(
       : null,
 
     // Messages with parsed information
-    messages: messagesWithBatches,
+    messages: messagesWithClassification,
     // Classify messages by batch for easy access
     messagesByBatch: Object.fromEntries(
-      [...new Set(messagesWithBatches.map(msg => (msg as any).batch || 'unassigned'))].map(batchName => [
+      [
+        ...new Set(
+          messagesWithClassification.map(
+            (msg) => (msg as any).batch || "unassigned"
+          )
+        ),
+      ].map((batchName) => [
         batchName,
-        messagesWithBatches.filter(msg => ((msg as any).batch || 'unassigned') === batchName)
+        messagesWithClassification.filter(
+          (msg) => ((msg as any).batch || "unassigned") === batchName
+        ),
       ])
     ),
 
@@ -305,7 +329,12 @@ export function parseTest(
   };
 
   // Write the results to result.json
-  const resultPath = path.join(process.cwd(), 'data', 'test-data', 'result.json');
+  const resultPath = path.join(
+    process.cwd(),
+    "data",
+    "test-data",
+    "result.json"
+  );
   fs.writeFileSync(resultPath, JSON.stringify(fullResult, null, 2));
   console.log(`Results written to ${resultPath}`);
 
@@ -315,10 +344,15 @@ export function parseTest(
 
 // If this file is run directly, execute the parser with default parameters
 if (require.main === module) {
-  console.log('Running parser-main directly...');
+  console.log("Running parser-main directly...");
   parseTest(
-    path.join(process.cwd(), 'data', 'test-data', '120363028202164779-messages.json'),
-    path.join(process.cwd(), 'groups.json'),
-    '120363028202164779@g.us'
+    path.join(
+      process.cwd(),
+      "data",
+      "test-data",
+      "120363028202164779-messages.json"
+    ),
+    path.join(process.cwd(), "groups.json"),
+    "120363028202164779@g.us"
   );
 }
