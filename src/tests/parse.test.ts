@@ -440,6 +440,21 @@ describe("Parser Main", () => {
 
   // Test the complete integration of registration end detection
   describe("Special case message formats", () => {
+    test("should use sender_name when message_stripped is empty", () => {
+      // Find message with empty message_stripped
+      const emptyContentMessage = resultData.messages.find(
+        (msg: any) => 
+          msg.sender_name === "Giulio" &&
+          msg.message_stripped === ""
+      );
+
+      // Verify the message is found
+      expect(emptyContentMessage).toBeDefined();
+      
+      // Expected that sender_name is used as player
+      expect(emptyContentMessage?.players).toEqual(["Giulio"]);
+    });
+
     test('should correctly parse "Miguel and Duarte in 17h" message', () => {
       // Process the messages with our parser
       const result = parseTest(

@@ -306,6 +306,11 @@ export function parseTest(
         }
       }
 
+      // If message_stripped is empty, use sender_name as player
+      if (players.length === 0 || (players.length === 1 && players[0] === "")) {
+        players = [(message as any).sender_name];
+      }
+
       // Add players and team status to the message
       (message as any).players = players;
       (message as any).isTeam = isTeam;
