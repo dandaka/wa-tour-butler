@@ -195,7 +195,7 @@ export function parseTest(
     const isConversation = MESSAGE_PATTERNS.CONVERSATION_PATTERNS.some(
       (pattern) => pattern.test(content)
     );
-    if (isConversation && !hasBatch) {
+    if (isConversation) {
       message.modifier = MessageCommand.CONVERSATION;
     }
 

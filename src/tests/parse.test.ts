@@ -440,6 +440,26 @@ describe("Parser Main", () => {
 
   // Test the complete integration of registration end detection
   describe("Special case message formats", () => {
+    test("should mark messages matching conversation patterns with 'conversation' modifier", () => {
+      // Find a message with 'looking for' content
+      const conversationalMessage = resultData.messages.find(
+        (msg: any) => 
+          msg.content.includes("Looking for") && 
+          msg.sender_name === "Ruben" &&
+          msg.batch === "17"
+      );
+
+      // Verify the message is found
+      expect(conversationalMessage).toBeDefined();
+      
+      // Verify it has the conversation modifier
+      expect(conversationalMessage?.modifier).toBe("conversation");
+      
+      // Verify it doesn't have players or message_stripped fields
+      expect(conversationalMessage?.players).toBeUndefined();
+      expect(conversationalMessage?.message_stripped).toBeUndefined();
+    });
+    
     test("should use sender_name when message_stripped is empty", () => {
       // Find message with empty message_stripped
       const emptyContentMessage = resultData.messages.find(
